@@ -1,0 +1,10 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: spdx-to-dep5
+Upstream-Contact: Ryan Pavlik <ryan.pavlik@collabora.com>
+Source: https://github.com/rpavlik/spdx-to-dep5
+
+# Sample paragraph, commented out:
+#
+# Files: src/*
+# Copyright: $YEAR $NAME <$CONTACT>
+# License: ...
