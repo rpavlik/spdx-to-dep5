@@ -1,7 +1,15 @@
 # SPDX-FileCopyrightText: 2021, Collabora, Ltd.
 # SPDX-License-Identifier: CC0-1.0
+# Ignore Gradle project-specific cache directory
+.gradle
 
+# Ignore Gradle build output directory
+build
+
+.idea
+.vscode/
 venv/
+
 *.pyc
 *.pyo
 *.spdx
@@ -10,3 +18,4 @@ venv/
 !.reuse
 
 /target
+local.properties

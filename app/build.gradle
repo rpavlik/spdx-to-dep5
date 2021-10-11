@@ -1,0 +1,85 @@
+/*
+ * Copyright 2021, Collabora, Ltd.
+ *
+ * SPDX-License-Identifier: BSL-1.0
+ */
+
+plugins {
+    // Apply the org.jetbrains.kotlin.jvm Plugin to add support for Kotlin.
+    id "org.jetbrains.kotlin.jvm" version "1.5.31"
+
+    // Apply the application plugin to add support for building a CLI application in Java.
+    id 'application'
+
+    // Make a jar with all deps in it
+    id "com.github.johnrengelman.shadow" version "6.1.0"
+
+    // Be able to build to a "native" image
+    id "org.mikeneck.graalvm-native-image" version "1.2.0"
+
+    // Force the logging to use
+    id "dev.jacomet.logging-capabilities" version "0.9.0"
+}
+
+repositories {
+    mavenCentral()
+}
+loggingCapabilities {
+    // enforceSlf4JSimple()
+    enforceLogback()
+}
+
+dependencies {
+    // Align versions of all Kotlin components
+    implementation platform("org.jetbrains.kotlin:kotlin-bom")
+
+    // Use the Kotlin JDK 8 standard library.
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+
+    implementation "org.spdx:java-spdx-library:0.0.7"
+    implementation "org.spdx:spdx-tagvalue-store:0.0.5"
+
+    implementation "com.github.ajalt.clikt:clikt:3.1.0"
+
+    // Used by other stuff. We're using logback instead of log4j2 since it plays with native-image better.
+    // It still allows us to silence a warning by logger name.
+    implementation 'ch.qos.logback:logback-classic:1.2.3'
+}
+
+group 'com.collabora'
+sourceCompatibility = 1.11
+mainClassName = "com.collabora.spdx2dep5.AppKt"
+version = "0.1.0"
+
+compileKotlin {
+    kotlinOptions.jvmTarget = "11"
+}
+
+// we have access-filter.json to work around this: https://github.com/oracle/graal/issues/2490
+nativeImage {
+    graalVmHome = System.getProperty('java.home')
+    mainClass = mainClassName
+    executableName = 'spdx2dep5'
+    outputDirectory = file("$buildDir/bin")
+    arguments {
+        add '--no-fallback'
+        add '--enable-all-security-services'
+        add '--install-exit-handlers'
+        add '--allow-incomplete-classpath'
+        add '-H:IncludeResources=".*stdlicenses.*$"'
+        add '--enable-url-protocols=http,https'
+//        add '--report-unsupported-elements-at-runtime'
+//        add '-H:Log=registerResource:'
+//        add '--verbose'
+    }
+}
+
+generateNativeImageConfig {
+    enabled = true
+    byRunningApplication {
+        arguments("${project.projectDir}/self.spdx")
+    }
+    byRunningApplication {
+        arguments('-h')
+    }
+}
