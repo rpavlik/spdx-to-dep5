@@ -1,18 +1,18 @@
-use std::pin::Pin;
+// Copyright 2021, Collabora, Ltd.
+//
+// SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use futures::Stream;
-
-/*
- * Copyright 2021, Collabora, Ltd.
- *
- * SPDX-License-Identifier: Apache-2.0 OR MIT
- */
-
+/// A key-value pair.
 pub struct KeyValuePair {
     pub key: String,
     pub value: String,
 }
 
+pub const TEXT_OPEN_TAG: &str = &"<text>";
+pub const TEXT_CLOSE_TAG: &str = &"</text>";
+const DELIM: &str = &": ";
+
+/// The result of parsing a key: value line.
 pub enum ParsedLine {
     RecordDelimeter,
     ValueOnly(String),
@@ -37,10 +37,8 @@ impl ParsedLine {
             ParsedLine::ValueOnly(_) => None,
         }
     }
-
 }
 
-const DELIM: &str = &": ";
 
 impl From<String> for ParsedLine {
     fn from(line: String) -> Self {

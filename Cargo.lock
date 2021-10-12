@@ -1284,6 +1284,7 @@ dependencies = [
  "async-stream",
  "futures",
  "spdx-rs",
+ "thiserror",
 ]
 
 [[package]]
