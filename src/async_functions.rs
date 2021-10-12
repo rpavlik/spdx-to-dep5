@@ -19,7 +19,7 @@ async fn read_line<R: AsyncBufRead>(mut reader: &mut Pin<Box<R>>) -> Option<Stri
 async fn read_parsed_line<R: AsyncBufRead>(reader: &mut Pin<Box<R>>) -> Option<ParsedLine> {
     let s = read_line(reader).await?;
 
-    let parsed = ParsedLine::from(s);
+    let parsed = ParsedLine::from(&s[..]);
     match parsed {
         ParsedLine::RecordDelimeter => Some(ParsedLine::RecordDelimeter),
         ParsedLine::ValueOnly(v) => Some(ParsedLine::ValueOnly(v)),
@@ -52,7 +52,8 @@ pub async fn get_record<R: AsyncBufRead>(reader: &mut Pin<Box<R>>) -> Option<Rec
             ParsedLine::RecordDelimeter => {
                 return Some(fields);
             }
-            ParsedLine::ValueOnly(_) => {
+            ParsedLine::ValueOnly(v) => {
+                println!("badline: {}", v);
                 panic!("Found a value-only line");
             }
             ParsedLine::KVPair(pair) => {

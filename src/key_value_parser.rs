@@ -40,8 +40,8 @@ impl ParsedLine {
 }
 
 
-impl From<String> for ParsedLine {
-    fn from(line: String) -> Self {
+impl From<&str> for ParsedLine {
+    fn from(line: &str) -> Self {
         let trimmed = line.trim();
         if trimmed.is_empty() {
             ParsedLine::RecordDelimeter
@@ -56,7 +56,7 @@ impl From<String> for ParsedLine {
                         value: String::from(v),
                     })
                 }
-                None => ParsedLine::ValueOnly(line),
+                None => ParsedLine::ValueOnly(line.to_string()),
             }
         }
     }

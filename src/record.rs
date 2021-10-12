@@ -15,6 +15,15 @@ pub enum RecordError {
 
     #[error("Missing mandatory field {0}")]
     MissingField(String),
+
+    #[error("SPDX-RS error {0}")]
+    SpdxError(#[from] spdx_rs::error::SpdxError),
+
+    #[error("Out of data")]
+    OutOfData,
+
+    #[error("Other error message: {0}")]
+    Message(String),
 }
 
 /// An order collection of key-value pairs with no (unescaped) blank lines between.
@@ -36,7 +45,8 @@ impl Record {
         self.0.iter().filter(|pair| pair.key == key).count()
     }
 
-    fn iter_values_for_key<'a>(
+    /// Return an iterator of all field values (in original order) whose key matches the provided key
+    pub fn iter_values_for_key<'a>(
         &'a self,
         key: &'a str,
     ) -> Box<dyn Iterator<Item = &'a String> + 'a> {

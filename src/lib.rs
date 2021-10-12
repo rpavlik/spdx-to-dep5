@@ -6,3 +6,5 @@ pub mod async_functions;
 pub mod entry;
 pub mod key_value_parser;
 pub mod record;
+
+pub use entry::try_parse_spdx_doc_from_records;
