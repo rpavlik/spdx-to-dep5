@@ -6,7 +6,7 @@ use std::pin::Pin;
 
 use futures::{AsyncBufRead, AsyncBufReadExt};
 
-use crate::{key_value_parser::{KeyValuePair, ParsedLine, TEXT_CLOSE_TAG}, record::Record};
+use crate::{key_value_parser::{KeyValuePair, ParsedLine, TEXT_CLOSE_TAG, TEXT_OPEN_TAG}, record::Record};
 
 
 async fn read_line<R: AsyncBufRead>(mut reader: &mut Pin<Box<R>>) -> Option<String> {
@@ -24,7 +24,7 @@ async fn read_parsed_line<R: AsyncBufRead>(reader: &mut Pin<Box<R>>) -> Option<P
         ParsedLine::RecordDelimeter => Some(ParsedLine::RecordDelimeter),
         ParsedLine::ValueOnly(v) => Some(ParsedLine::ValueOnly(v)),
         ParsedLine::KVPair(pair) => {
-            if pair.value.contains(TEXT_CLOSE_TAG) && !pair.value.contains(TEXT_CLOSE_TAG) {
+            if pair.value.contains(TEXT_OPEN_TAG) && !pair.value.contains(TEXT_CLOSE_TAG) {
                 let mut value_lines = vec![pair.value];
 
                 while let Some(line) = read_line(reader).await {
