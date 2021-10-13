@@ -6,11 +6,7 @@ use std::fmt::Debug;
 
 use super::parsed_line::{KeyValuePair, ParsedLine};
 
-pub const TEXT_OPEN_TAG: &str = "<text>";
-pub const TEXT_CLOSE_TAG: &str = "</text>";
-const DELIM: &str = ": ";
-
-/// Enum returned by the policy when processing a value.
+/// Enum returned by a [TagValueParsePolicy] when processing a value.
 pub enum ProcessedValue<'a> {
     /// Indicates that the provided value is complete and not continued on the following line.
     ///
@@ -24,7 +20,7 @@ pub enum ProcessedValue<'a> {
     StartOfMultiline(Option<&'a str>),
 }
 
-/// Enum returned by the policy when processing a continuation line for a multi-line value.
+/// Enum returned by a [TagValueParsePolicy] when processing a continuation line for a multi-line value.
 pub enum ProcessedContinuationValue<'a> {
     /// Indicates that the provided value is not complete, and that
     /// additional lines should be processed before terminating this key: value pair.
@@ -39,87 +35,21 @@ pub enum ProcessedContinuationValue<'a> {
     FinishMultiline(Option<&'a str>),
 }
 
+/// Implement this policy to customize how [KVParser] works, mainly regarding multi-line values.
 pub trait TagValueParsePolicy {
+    /// Called when a key and value are parsed.
+    ///
+    /// Allows you to trim the value, as well as report
+    /// that it is only the beginning of a multi-line value.
     fn process_value<'a>(&self, key: &str, value: &'a str) -> ProcessedValue<'a>;
+    /// Called with each new line once [TagValueParsePolicy::process_value] returns
+    /// [ProcessedValue::StartOfMultiline], to possibly trim or drop the line, and indicate
+    /// when the multi-line value has finished.
     fn process_continuation<'a>(
         &self,
         key: &str,
         continuation_line: &'a str,
     ) -> ProcessedContinuationValue<'a>;
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-/// The simplest parse policy, that does no trimming or transformation, and no multi-line values.
-pub struct TrivialParsePolicy {}
-impl TagValueParsePolicy for TrivialParsePolicy {
-    fn process_value<'a>(&self, _key: &str, value: &'a str) -> ProcessedValue<'a> {
-        ProcessedValue::CompleteValue(value)
-    }
-
-    fn process_continuation<'a>(
-        &self,
-        _key: &str,
-        _continuation_line: &'a str,
-    ) -> ProcessedContinuationValue<'a> {
-        unreachable!()
-    }
-}
-
-#[derive(Debug, Default, Clone, Copy)]
-/// The parse policy used for SPDX Tag-Value files, where a value that starts with `<text>` continues
-/// possibly across multiple lines until `</text>`, both of which are trimmed.
-pub struct SPDXParsePolicy {}
-impl TagValueParsePolicy for SPDXParsePolicy {
-    fn process_value<'a>(&self, _key: &str, value: &'a str) -> ProcessedValue<'a> {
-        let trimmed_val = value.trim();
-        if let Some(value) = trimmed_val.strip_prefix(TEXT_OPEN_TAG) {
-            if let Some(value) = value.strip_suffix(TEXT_CLOSE_TAG) {
-                // found both open and close
-                ProcessedValue::CompleteValue(value)
-            } else {
-                // only found open
-                ProcessedValue::StartOfMultiline(Some(value))
-            }
-        } else {
-            // just plain text
-            ProcessedValue::CompleteValue(value)
-        }
-    }
-
-    fn process_continuation<'a>(
-        &self,
-        _key: &str,
-        continuation_line: &'a str,
-    ) -> ProcessedContinuationValue<'a> {
-        let line = continuation_line.trim_end();
-        if let Some(stripped) = line.strip_suffix(TEXT_CLOSE_TAG) {
-            ProcessedContinuationValue::FinishMultiline(Some(stripped))
-        } else {
-            ProcessedContinuationValue::ContinueMultiline(Some(line))
-        }
-    }
-}
-
-impl From<&str> for ParsedLine {
-    fn from(line: &str) -> Self {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            ParsedLine::RecordDelimeter
-        } else {
-            match line.match_indices(DELIM).next() {
-                Some((delim, _)) => {
-                    let (k, v) = line.split_at(delim);
-                    let v = &v[DELIM.len()..];
-
-                    ParsedLine::KVPair(KeyValuePair {
-                        key: String::from(k),
-                        value: String::from(v),
-                    })
-                }
-                None => ParsedLine::ValueOnly(line.to_string()),
-            }
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -128,7 +58,7 @@ enum State {
     AwaitingCloseText,
 }
 
-/// The output of processing a line of input in [KVParser][]
+/// The output of processing a line of input in [KVParser]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Output {
     /// The provided line was empty or whitespace-only
@@ -233,6 +163,10 @@ impl<P: TagValueParsePolicy> KVParser<P> {
     }
     pub fn process_line(&mut self, line: &str) -> OutputAndLine {
         self.line_num += 1;
+
+        // Match on our current state to compute our output.
+        //
+        // The output also uniquely determines our next state.
         let output = match &mut self.state {
             State::Ready => match ParsedLine::from(line) {
                 ParsedLine::RecordDelimeter => Output::EmptyLine,
@@ -268,7 +202,12 @@ impl<P: TagValueParsePolicy> KVParser<P> {
                 }
             }
         };
-        self.state = output.compute_state();
+        self.state = match &output {
+            Output::EmptyLine => State::Ready,
+            Output::ValuePending => State::AwaitingCloseText,
+            Output::KeylessLine(_) => State::Ready,
+            Output::Pair(_) => State::Ready,
+        };
         OutputAndLine {
             output,
             line_number: self.line_num,
@@ -285,13 +224,14 @@ impl<P: TagValueParsePolicy + Debug + Default> Default for KVParser<P> {
 #[cfg(test)]
 mod test {
 
+    use crate::tag_value::policies::SPDXParsePolicy;
+    use crate::tag_value::policies::TrivialParsePolicy;
+
     use super::KVParser;
     use super::KeyValuePair;
     use super::Output;
     use super::OutputAndLine;
-    use super::SPDXParsePolicy;
     use super::TagValueParsePolicy;
-    use super::TrivialParsePolicy;
 
     #[test]
     fn basics() {

@@ -4,7 +4,7 @@
 
 pub mod key_value_parser;
 pub mod parsed_line;
+pub mod policies;
 
 pub use key_value_parser::KVParser;
-
 pub use parsed_line::{KeyValuePair, ParsedLine};

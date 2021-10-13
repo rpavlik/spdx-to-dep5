@@ -37,3 +37,27 @@ impl ParsedLine {
         }
     }
 }
+
+const DELIM: &str = ": ";
+
+impl From<&str> for ParsedLine {
+    fn from(line: &str) -> Self {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            ParsedLine::RecordDelimeter
+        } else {
+            match line.match_indices(DELIM).next() {
+                Some((delim, _)) => {
+                    let (k, v) = line.split_at(delim);
+                    let v = &v[DELIM.len()..];
+
+                    ParsedLine::KVPair(KeyValuePair {
+                        key: String::from(k),
+                        value: String::from(v),
+                    })
+                }
+                None => ParsedLine::ValueOnly(line.to_string()),
+            }
+        }
+    }
+}

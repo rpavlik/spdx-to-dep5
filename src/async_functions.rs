@@ -9,7 +9,7 @@ use futures::{AsyncBufRead, AsyncBufReadExt};
 use crate::{
     record::Record,
     tag_value::{
-        key_value_parser::{TEXT_CLOSE_TAG, TEXT_OPEN_TAG},
+        policies::{TEXT_CLOSE_TAG, TEXT_OPEN_TAG},
         KeyValuePair, ParsedLine,
     },
 };
