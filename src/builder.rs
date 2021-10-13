@@ -46,22 +46,6 @@ impl de::Error for BuilderError {
     }
 }
 
-// impl TryFrom<&str> for Checksum {
-//     type Error = ParserError;
-
-//     fn try_from(value: &str) -> Result<Self, Self::Error> {
-//         let pair = ParsedLine::from(value).pair().ok_or(ParserError::InvalidField(
-//             "Could not parse checksum field".to_string(),
-//         ))?;
-//         let d: BorrowedStrDeserializer<Self::Error> = BorrowedStrDeserializer::new(&pair.key);
-//         let algorithm: Algorithm = models::Algorithm::deserialize(d)?;
-//         Ok(Checksum(models::Checksum {
-//             algorithm,
-//             value: pair.value,
-//         }))
-//     }
-// }
-
 fn try_parsing_checksum_from(
     field_name: &str,
     value: &str,
@@ -431,6 +415,8 @@ fn captures_to_relationship(caps: &Captures) -> Option<models::Relationship> {
     })
 }
 
+/// This allows gradual creation of an SPDX document model, such as when parsing a tag-value file
+/// incrementally.
 #[derive(Debug, Default)]
 pub struct SPDXBuilder {
     document_creation_information: DocumentCreationInformationBuilder,
