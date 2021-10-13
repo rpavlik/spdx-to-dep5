@@ -28,7 +28,11 @@ pub fn format_field<'a, T: Iterator<Item = &'a str>>(
             let lines: Vec<String> = vec![first_line]
                 .into_iter()
                 .chain(subsequent_lines.map(|line| {
-                    let rest_of_line = if line.is_empty() { "." } else { line.trim_end() };
+                    let rest_of_line = if line.is_empty() {
+                        "."
+                    } else {
+                        line.trim_end()
+                    };
                     format!("  {}", rest_of_line)
                 }))
                 .collect();
@@ -51,6 +55,11 @@ pub trait Field {
 #[derive(Debug, Clone)]
 pub struct SingleLineField(pub String);
 
+impl From<String> for SingleLineField {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
 impl Field for SingleLineField {
     fn try_to_string(&self, field_name: &str) -> Result<Option<String>, ControlFileError> {
         if self.0.contains("\n") {
@@ -63,6 +72,11 @@ impl Field for SingleLineField {
 #[derive(Debug, Clone)]
 pub struct MultilineField(pub String);
 
+impl From<String> for MultilineField {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
 impl Field for MultilineField {
     fn try_to_string(&self, field_name: &str) -> Result<Option<String>, ControlFileError> {
         let mut lines = self.0.split("\n");
@@ -74,6 +88,11 @@ impl Field for MultilineField {
 #[derive(Debug, Clone)]
 pub struct MultilineEmptyFirstLineField(pub String);
 
+impl From<String> for MultilineEmptyFirstLineField {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
 impl Field for MultilineEmptyFirstLineField {
     fn try_to_string(&self, field_name: &str) -> Result<Option<String>, ControlFileError> {
         let lines = self.0.split("\n");
@@ -84,6 +103,11 @@ impl Field for MultilineEmptyFirstLineField {
 #[derive(Debug, Clone)]
 pub struct SingleLineOrMultilineEmptyFirstLineField(pub String);
 
+impl From<String> for SingleLineOrMultilineEmptyFirstLineField {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
 impl Field for SingleLineOrMultilineEmptyFirstLineField {
     fn try_to_string(&self, field_name: &str) -> Result<Option<String>, ControlFileError> {
         if self.0.contains("\n") {

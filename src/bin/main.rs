@@ -5,7 +5,11 @@
 use std::io::BufRead;
 
 use key_value_parser::{policies::SPDXParsePolicy, KVParser, ParserOutput};
-use spdx_to_dep5::builder::{BuilderError, SPDXBuilder};
+use spdx_to_dep5::{
+    builder::{BuilderError, SPDXBuilder},
+    control_file::{ControlFileError, Paragraph},
+    dep5::FilesParagraph,
+};
 
 fn main() -> Result<(), BuilderError> {
     let file = std::fs::File::open("summary.spdx").unwrap();
@@ -23,6 +27,29 @@ fn main() -> Result<(), BuilderError> {
     }
     let doc = builder.try_into_result().unwrap();
 
-    println!("stuff: {:?}", doc);
+    const NEEDLE: &str = "SPDX-FileCopyrightText: ";
+    let paragraphs: Vec<String> = doc
+        .file_information
+        .into_iter()
+        .filter(|f| f.copyright_text != "NONE")
+        .map(|f| {
+            if f.copyright_text.contains(NEEDLE) {
+                let copr = f.copyright_text.replace(NEEDLE, "");
+                let mut f = f;
+                f.copyright_text = copr;
+                f
+            } else {
+                f
+            }
+        })
+        .map(|f| FilesParagraph {
+            files: f.file_name.into(),
+            copyright: f.copyright_text.into(),
+            license: f.license_information_in_file.join("\n").into(), //f.concluded_license,
+            comment: None,
+        })
+        .filter_map(|paragraph| paragraph.try_to_string().ok().flatten())
+        .collect();
+    println!("stuff: {}", paragraphs.join("\n\n"));
     Ok(())
 }
