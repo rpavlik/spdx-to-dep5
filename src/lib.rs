@@ -3,3 +3,5 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 pub mod builder;
+pub mod control_file;
+pub mod dep5;
