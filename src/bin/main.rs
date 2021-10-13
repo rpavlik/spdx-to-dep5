@@ -16,7 +16,10 @@ fn main() -> Result<(), RecordError> {
     let mut builder = SPDXBuilder::default();
     for result in line_reader {
         let line = result.unwrap();
-        if let Some(field) = parser.process_line(&line).into_inner() {
+        if let Some(field) = parser
+            .process_line(&line)
+            .pair_or_err_on_keyless(RecordError::Message("Found line with no key".to_string()))?
+        {
             builder
                 .handle_field(&field)
                 .map_err(|e| RecordError::Message(e.to_string()))?;
