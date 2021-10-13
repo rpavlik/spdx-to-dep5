@@ -4,11 +4,11 @@
 use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
+use key_value_parser::{KeyValuePair, ParsedLine, ParserOutput};
 use regex::{Captures, Regex};
 use serde::{de, de::value::BorrowedStrDeserializer, Deserialize};
 use spdx_rs::models;
 
-use crate::tag_value::{KeyValuePair, ParsedLine};
 /// An error from operations on a Record
 #[derive(Debug, thiserror::Error)]
 pub enum BuilderError {
@@ -51,7 +51,7 @@ fn try_parsing_checksum_from(
     value: &str,
 ) -> Result<models::Checksum, BuilderError> {
     let pair = ParsedLine::from(value)
-        .pair()
+        .ok()
         .ok_or_else(|| BuilderError::InvalidField(field_name.to_string()))?;
     let d: BorrowedStrDeserializer<BuilderError> = BorrowedStrDeserializer::new(&pair.key);
     let algorithm = models::Algorithm::deserialize(d)?;

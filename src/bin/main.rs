@@ -4,25 +4,21 @@
 
 use std::io::BufRead;
 
-use spdx_to_dep5::{
-    builder::SPDXBuilder, record::RecordError, tag_value::key_value_parser, tag_value::KVParser,
-};
+use key_value_parser::{policies::SPDXParsePolicy, KVParser, ParserOutput};
+use spdx_to_dep5::builder::{BuilderError, SPDXBuilder};
 
-fn main() -> Result<(), RecordError> {
+fn main() -> Result<(), BuilderError> {
     let file = std::fs::File::open("summary.spdx").unwrap();
     let line_reader = std::io::BufReader::new(file).lines();
 
-    let mut parser: KVParser<key_value_parser::SPDXParsePolicy> = KVParser::default();
+    let mut parser: KVParser<SPDXParsePolicy> = KVParser::default();
     let mut builder = SPDXBuilder::default();
     for result in line_reader {
         let line = result.unwrap();
-        if let Some(field) = parser
-            .process_line(&line)
-            .pair_or_err_on_keyless(RecordError::Message("Found line with no key".to_string()))?
-        {
-            builder
-                .handle_field(&field)
-                .map_err(|e| RecordError::Message(e.to_string()))?;
+        if let Some(field) = parser.process_line(&line).ok_or_else_err_on_keyless(|| {
+            BuilderError::Message("Found line with no key".to_string())
+        })? {
+            builder.handle_field(&field)?;
         }
     }
     let doc = builder.try_into_result().unwrap();

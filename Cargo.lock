@@ -683,6 +683,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "key-value-parser"
+version = "0.1.0"
+source = "git+https://github.com/rpavlik/key-value-parser-rs?rev=0.1.0#f26452728d8c1e791a98b2b734dc3e7015f8605e"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "kv-log-macro"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1281,6 +1289,7 @@ dependencies = [
  "async-stream",
  "chrono",
  "futures",
+ "key-value-parser",
  "regex",
  "serde",
  "spdx-rs",

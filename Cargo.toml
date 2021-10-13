@@ -14,3 +14,7 @@ regex = "1.5.4"
 serde = "1.0.130"
 spdx-rs = {path = "../spdx-rs/"}
 thiserror = "1.0.30"
+
+[dependencies.key-value-parser]
+git = "https://github.com/rpavlik/key-value-parser-rs"
+rev = "0.1.0"
