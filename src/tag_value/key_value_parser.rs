@@ -4,13 +4,11 @@
 
 use std::fmt::Debug;
 
-use crate::record::RecordError;
-
 use super::parsed_line::{KeyValuePair, ParsedLine};
 
-pub const TEXT_OPEN_TAG: &str = &"<text>";
-pub const TEXT_CLOSE_TAG: &str = &"</text>";
-const DELIM: &str = &": ";
+pub const TEXT_OPEN_TAG: &str = "<text>";
+pub const TEXT_CLOSE_TAG: &str = "</text>";
+const DELIM: &str = ": ";
 
 /// Enum returned by the policy when processing a value.
 pub enum ProcessedValue<'a> {
@@ -74,15 +72,14 @@ pub struct SPDXParsePolicy {}
 impl TagValueParsePolicy for SPDXParsePolicy {
     fn process_value<'a>(&self, _key: &str, value: &'a str) -> ProcessedValue<'a> {
         let trimmed_val = value.trim();
-        let has_open = trimmed_val.starts_with(TEXT_OPEN_TAG);
-        let has_close = trimmed_val.ends_with(TEXT_CLOSE_TAG);
-
-        if has_open && has_close {
-            let value = &trimmed_val[TEXT_OPEN_TAG.len()..trimmed_val.len() - TEXT_CLOSE_TAG.len()];
-            ProcessedValue::CompleteValue(value)
-        } else if has_open && !has_close {
-            let value = &trimmed_val[TEXT_OPEN_TAG.len()..];
-            ProcessedValue::StartOfMultiline(Some(value))
+        if let Some(value) = trimmed_val.strip_prefix(TEXT_OPEN_TAG) {
+            if let Some(value) = value.strip_suffix(TEXT_CLOSE_TAG) {
+                // found both open and close
+                ProcessedValue::CompleteValue(value)
+            } else {
+                // only found open
+                ProcessedValue::StartOfMultiline(Some(value))
+            }
         } else {
             // just plain text
             ProcessedValue::CompleteValue(value)
@@ -95,9 +92,8 @@ impl TagValueParsePolicy for SPDXParsePolicy {
         continuation_line: &'a str,
     ) -> ProcessedContinuationValue<'a> {
         let line = continuation_line.trim_end();
-        if line.ends_with(TEXT_CLOSE_TAG) {
-            let value = &line[..line.len() - TEXT_CLOSE_TAG.len()];
-            ProcessedContinuationValue::FinishMultiline(Some(value))
+        if let Some(stripped) = line.strip_suffix(TEXT_CLOSE_TAG) {
+            ProcessedContinuationValue::FinishMultiline(Some(stripped))
         } else {
             ProcessedContinuationValue::ContinueMultiline(Some(line))
         }

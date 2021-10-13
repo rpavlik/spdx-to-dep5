@@ -68,7 +68,7 @@ fn try_parsing_checksum_from(
 ) -> Result<models::Checksum, BuilderError> {
     let pair = ParsedLine::from(value)
         .pair()
-        .ok_or(BuilderError::InvalidField(field_name.to_string()))?;
+        .ok_or_else(|| BuilderError::InvalidField(field_name.to_string()))?;
     let d: BorrowedStrDeserializer<BuilderError> = BorrowedStrDeserializer::new(&pair.key);
     let algorithm = models::Algorithm::deserialize(d)?;
     Ok(models::Checksum {
@@ -177,19 +177,19 @@ impl FieldReceiver for DocumentCreationInformationBuilder {
 
     fn maybe_handle_field(&mut self, field: &KeyValuePair) -> Result<bool, BuilderError> {
         match field.key.as_str() {
-            "SPDXVersion" => set_single_multiplicity_string(&mut self.spdx_version, &field),
-            "DataLicense" => set_single_multiplicity_string(&mut self.data_license, &field),
+            "SPDXVersion" => set_single_multiplicity_string(&mut self.spdx_version, field),
+            "DataLicense" => set_single_multiplicity_string(&mut self.data_license, field),
             "SPDXID" => {
                 if self.spdx_id.is_none() {
-                    set_single_multiplicity_string(&mut self.spdx_id, &field)
+                    set_single_multiplicity_string(&mut self.spdx_id, field)
                 } else {
                     // lots of things are named spdxid
                     Ok(false)
                 }
             }
-            "DocumentName" => set_single_multiplicity_string(&mut self.name, &field),
-            "DocumentNamespace" => set_single_multiplicity_string(&mut self.namespace, &field),
-            "DocumentComment" => set_single_multiplicity_string(&mut self.doc_comment, &field),
+            "DocumentName" => set_single_multiplicity_string(&mut self.name, field),
+            "DocumentNamespace" => set_single_multiplicity_string(&mut self.namespace, field),
+            "DocumentComment" => set_single_multiplicity_string(&mut self.doc_comment, field),
             _ => self.creation_info.maybe_handle_field(field),
         }
     }
@@ -249,10 +249,10 @@ impl FieldReceiver for RelationshipsBuilder {
             let caps = self
                 .re
                 .captures(&field.value)
-                .ok_or(BuilderError::InvalidField(field.key.to_string()))?;
+                .ok_or_else(|| BuilderError::InvalidField(field.key.to_string()))?;
             self.relationships.push(
                 captures_to_relationship(&caps)
-                    .ok_or(BuilderError::InvalidField(field.key.to_string()))?,
+                    .ok_or_else(|| BuilderError::InvalidField(field.key.to_string()))?,
             );
 
             Ok(true)
@@ -281,23 +281,23 @@ struct FileInformationBuilder {
     license_information_in_file: Vec<String>,
 }
 
-const KEY_FILENAME: &str = &"FileName";
-const KEY_SPDXID: &str = &"SPDXID";
-const KEY_FILECHECKSUM: &str = &"FileChecksum";
-const KEY_LICENSECONCLUDED: &str = &"LicenseConcluded";
-const KEY_LICENSEINFOINFILE: &str = &"LicenseInfoInFile";
-const KEY_FILECOPYRIGHTTEXT: &str = &"FileCopyrightText";
+const KEY_FILENAME: &str = "FileName";
+const KEY_SPDXID: &str = "SPDXID";
+const KEY_FILECHECKSUM: &str = "FileChecksum";
+const KEY_LICENSECONCLUDED: &str = "LicenseConcluded";
+const KEY_LICENSEINFOINFILE: &str = "LicenseInfoInFile";
+const KEY_FILECOPYRIGHTTEXT: &str = "FileCopyrightText";
 impl FileInformationBuilder {
     fn is_known_field(key: &str) -> bool {
-        match key {
-            KEY_FILENAME => true,
-            KEY_SPDXID => true,
-            KEY_LICENSECONCLUDED => true,
-            KEY_FILECOPYRIGHTTEXT => true,
-            KEY_FILECHECKSUM => true,
-            KEY_LICENSEINFOINFILE => true,
-            _ => false,
-        }
+        matches!(
+            key,
+            KEY_FILENAME
+                | KEY_SPDXID
+                | KEY_LICENSECONCLUDED
+                | KEY_FILECOPYRIGHTTEXT
+                | KEY_FILECHECKSUM
+                | KEY_LICENSEINFOINFILE
+        )
     }
     fn can_accept(&self, field: &KeyValuePair) -> bool {
         match field.key.as_str() {
@@ -412,7 +412,7 @@ impl FieldReceiver for FileInformationCollectionBuilder {
 
 impl From<chrono::ParseError> for BuilderError {
     fn from(e: chrono::ParseError) -> Self {
-        BuilderError::Message(format!("DateTime parsing error: {}", e.to_string()).to_string())
+        BuilderError::Message(format!("DateTime parsing error: {}", e.to_string()))
     }
 }
 

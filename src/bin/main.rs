@@ -10,11 +10,11 @@ use spdx_to_dep5::{
 
 fn main() -> Result<(), RecordError> {
     let file = std::fs::File::open("summary.spdx").unwrap();
-    let mut line_reader = std::io::BufReader::new(file).lines();
+    let line_reader = std::io::BufReader::new(file).lines();
 
     let mut parser: KVParser<key_value_parser::SPDXParsePolicy> = KVParser::default();
     let mut builder = SPDXBuilder::default();
-    while let Some(result) = line_reader.next() {
+    for result in line_reader {
         let line = result.unwrap();
         if let Some(field) = parser.process_line(&line).into_inner() {
             builder
