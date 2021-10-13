@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 use std::{convert::TryFrom, str::FromStr};
 
-use chrono::DateTime;
+use chrono::{DateTime, Utc};
 use regex::{bytes::NoExpand, Captures, Regex};
 use serde::{de, de::value::BorrowedStrDeserializer, Deserialize};
 use spdx_rs::models::{
@@ -129,6 +129,42 @@ where
     dest.push(transformer(field)?);
     Ok(true)
 }
+#[derive(Debug, Default)]
+struct CreationInformationBuilder {
+    creator: Vec<String>,
+    created: Option<DateTime<Utc>>,
+    creator_comment: Option<String>,
+}
+impl FieldReceiver for CreationInformationBuilder {
+    type Item = models::CreationInfo;
+
+    fn maybe_handle_field(&mut self, field: &KeyValuePair) -> Result<bool, ParserError> {
+        match field.key.as_str() {
+            "Creator" => append_string(&mut self.creator, field),
+            "Created" => set_single_multiplicity_transformed(&mut self.created, field, |f| {
+                Ok(DateTime::from_str(&f.value)?)
+            }),
+            "CreatorComment" => set_single_multiplicity_string(&mut self.creator_comment, field),
+            _ => Ok(false),
+        }
+    }
+
+    fn maybe_take(&mut self) -> Option<Self::Item> {
+        if !self.has_required_fields() {
+            return None;
+        }
+        Some(models::CreationInfo {
+            license_list_version: None,
+            creators: std::mem::take(&mut self.creator),
+            created: std::mem::take(&mut self.created)?,
+            creator_comment: std::mem::take(&mut self.creator_comment),
+        })
+    }
+
+    fn has_required_fields(&self) -> bool {
+        !self.creator.is_empty() && self.created.is_some()
+    }
+}
 
 #[derive(Debug, Default)]
 struct DocumentCreationInformationBuilder {
@@ -138,6 +174,7 @@ struct DocumentCreationInformationBuilder {
     data_license: Option<String>,
     spdx_id: Option<String>,
     doc_comment: Option<String>,
+    creation_info: CreationInformationBuilder,
 }
 
 impl FieldReceiver for DocumentCreationInformationBuilder {
@@ -147,16 +184,36 @@ impl FieldReceiver for DocumentCreationInformationBuilder {
         match field.key.as_str() {
             "SPDXVersion" => set_single_multiplicity_string(&mut self.spdx_version, &field),
             "DataLicense" => set_single_multiplicity_string(&mut self.data_license, &field),
-            "SPDXID" => set_single_multiplicity_string(&mut self.spdx_id, &field),
+            "SPDXID" => {
+                if self.spdx_id.is_none() {
+                    set_single_multiplicity_string(&mut self.spdx_id, &field)
+                } else {
+                    // lots of things are named spdxid
+                    Ok(false)
+                }
+            }
             "DocumentName" => set_single_multiplicity_string(&mut self.name, &field),
             "DocumentNamespace" => set_single_multiplicity_string(&mut self.namespace, &field),
             "DocumentComment" => set_single_multiplicity_string(&mut self.doc_comment, &field),
-            _ => Ok(false),
+            _ => self.creation_info.maybe_handle_field(field),
         }
     }
 
     fn maybe_take(&mut self) -> Option<Self::Item> {
-        todo!()
+        if !self.has_required_fields() {
+            return None;
+        }
+        Some(models::DocumentCreationInformation {
+            spdx_version: std::mem::take(&mut self.spdx_version)?,
+            data_license: std::mem::take(&mut self.data_license)?,
+            spdx_identifier: std::mem::take(&mut self.spdx_id)?,
+            document_name: std::mem::take(&mut self.name)?,
+            spdx_document_namespace: std::mem::take(&mut self.namespace)?,
+            external_document_references: vec![],
+            creation_info: self.creation_info.maybe_take()?,
+            document_comment: std::mem::take(&mut self.doc_comment),
+            document_describes: vec![],
+        })
     }
 
     fn has_required_fields(&self) -> bool {
@@ -165,6 +222,7 @@ impl FieldReceiver for DocumentCreationInformationBuilder {
             && self.spdx_id.is_some()
             && self.name.is_some()
             && self.namespace.is_some()
+            && self.creation_info.has_required_fields()
     }
 }
 
