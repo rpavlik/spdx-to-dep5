@@ -56,3 +56,22 @@ impl Paragraph for HeaderParagraph {
         ))
     }
 }
+
+pub struct FilesParagraph {
+    pub files: MultilineField,
+    pub copyright: MultilineField,
+    pub license: SingleLineOrMultilineEmptyFirstLineField,
+    pub comment: Option<MultilineField>,
+}
+impl Paragraph for FilesParagraph {
+    fn try_to_string(&self) -> Result<Option<String>, crate::control_file::ControlFileError> {
+        Ok(Some(
+            ParagraphAccumulator::default()
+                .write("Files", &self.files)?
+                .write("Copyright", &self.copyright)?
+                .write("License", &self.license)?
+                .write("Comment", &self.comment)?
+                .to_string(),
+        ))
+    }
+}
