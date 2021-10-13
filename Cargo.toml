@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2021, Collabora, Ltd.
+# SPDX-License-Identifier: CC0-1.0
+
 [package]
 edition = "2018"
 name = "spdx-to-dep5"
