@@ -1,52 +1,16 @@
-use std::fmt::Debug;
-
-use serde::de::value;
-
-use crate::record::RecordError;
-
 // Copyright 2021, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-/// A key-value pair.
-#[derive(Debug, Clone, PartialEq)]
-pub struct KeyValuePair {
-    pub key: String,
-    pub value: String,
-}
+use std::fmt::Debug;
+
+use crate::record::RecordError;
+
+use super::parsed_line::{KeyValuePair, ParsedLine};
 
 pub const TEXT_OPEN_TAG: &str = &"<text>";
 pub const TEXT_CLOSE_TAG: &str = &"</text>";
 const DELIM: &str = &": ";
-
-/// The result of parsing a single line as a key: value.
-///
-/// Does not handle any kind of multi-line values.
-pub enum ParsedLine {
-    RecordDelimeter,
-    ValueOnly(String),
-    KVPair(KeyValuePair),
-}
-
-impl ParsedLine {
-    /// true if the KVPair variant
-    pub fn is_kv_pair(&self) -> bool {
-        match self {
-            ParsedLine::KVPair(_) => true,
-            ParsedLine::RecordDelimeter => false,
-            ParsedLine::ValueOnly(_) => false,
-        }
-    }
-
-    /// Turns the KVPair variant into Some(KeyValuePair) and everything else into None
-    pub fn pair(self) -> Option<KeyValuePair> {
-        match self {
-            ParsedLine::KVPair(pair) => Some(pair),
-            ParsedLine::RecordDelimeter => None,
-            ParsedLine::ValueOnly(_) => None,
-        }
-    }
-}
 
 /// Enum returned by the policy when processing a value.
 pub enum ProcessedValue<'a> {
@@ -88,7 +52,7 @@ pub trait TagValueParsePolicy {
 
 #[derive(Debug, Default, Clone, Copy)]
 /// The simplest parse policy, that does no trimming or transformation, and no multi-line values.
-struct TrivialParsePolicy {}
+pub struct TrivialParsePolicy {}
 impl TagValueParsePolicy for TrivialParsePolicy {
     fn process_value<'a>(&self, _key: &str, value: &'a str) -> ProcessedValue<'a> {
         ProcessedValue::CompleteValue(value)
@@ -106,7 +70,7 @@ impl TagValueParsePolicy for TrivialParsePolicy {
 #[derive(Debug, Default, Clone, Copy)]
 /// The parse policy used for SPDX Tag-Value files, where a value that starts with `<text>` continues
 /// possibly across multiple lines until `</text>`, both of which are trimmed.
-struct SPDXParsePolicy {}
+pub struct SPDXParsePolicy {}
 impl TagValueParsePolicy for SPDXParsePolicy {
     fn process_value<'a>(&self, _key: &str, value: &'a str) -> ProcessedValue<'a> {
         let trimmed_val = value.trim();
@@ -169,6 +133,7 @@ enum State {
 }
 
 /// The combination of possibly a key-value pair, plus the line number just processed
+#[derive(Debug, Clone, PartialEq)]
 pub struct KVParserLineOutput {
     pub pair: Option<KeyValuePair>,
     pub line_number: usize,
@@ -177,6 +142,9 @@ pub struct KVParserLineOutput {
 impl KVParserLineOutput {
     pub fn into_inner(self) -> Option<KeyValuePair> {
         self.pair
+    }
+    pub fn into_tuple(self) -> (Option<KeyValuePair>, usize) {
+        (self.pair, self.line_number)
     }
 }
 
@@ -208,7 +176,7 @@ impl<P: TagValueParsePolicy> KVParser<P> {
             self.value_lines.push(value.to_string())
         }
     }
-    pub fn process_line(&mut self, line: &str) -> Result<KVParserLineOutput, RecordError> {
+    pub fn process_line(&mut self, line: &str) -> KVParserLineOutput {
         self.line_num += 1;
         let (maybe_return_pair, next_state) = match &mut self.state {
             State::Ready => match ParsedLine::from(line) {
@@ -252,10 +220,10 @@ impl<P: TagValueParsePolicy> KVParser<P> {
             }
         };
         self.state = next_state;
-        Ok(KVParserLineOutput {
+        KVParserLineOutput {
             pair: maybe_return_pair,
             line_number: self.line_num,
-        })
+        }
     }
 }
 
@@ -268,6 +236,7 @@ impl<P: TagValueParsePolicy + Debug + Default> Default for KVParser<P> {
 #[cfg(test)]
 mod test {
 
+    use crate::tag_value::key_value_parser::KVParserLineOutput;
     use crate::tag_value::key_value_parser::SPDXParsePolicy;
     use crate::tag_value::key_value_parser::TagValueParsePolicy;
     use crate::tag_value::key_value_parser::TrivialParsePolicy;
@@ -280,14 +249,30 @@ mod test {
     fn basics() {
         fn test_parser<P: TagValueParsePolicy>(mut parser: KVParser<P>) {
             assert_eq!(
-                parser
-                    .process_line("key: value")
-                    .unwrap()
-                    .into_inner()
-                    .unwrap(),
-                KeyValuePair {
-                    key: "key".to_string(),
-                    value: "value".to_string(),
+                parser.process_line("key1: value1"),
+                KVParserLineOutput {
+                    pair: Some(KeyValuePair {
+                        key: "key1".to_string(),
+                        value: "value1".to_string(),
+                    }),
+                    line_number: 1
+                }
+            );
+            assert_eq!(
+                parser.process_line(" "),
+                KVParserLineOutput {
+                    pair: None,
+                    line_number: 2
+                }
+            );
+            assert_eq!(
+                parser.process_line("key2: value2"),
+                KVParserLineOutput {
+                    pair: Some(KeyValuePair {
+                        key: "key2".to_string(),
+                        value: "value2".to_string(),
+                    }),
+                    line_number: 3
                 }
             );
         }
@@ -297,13 +282,13 @@ mod test {
         let parser: KVParser<SPDXParsePolicy> = KVParser::default();
         test_parser(parser);
     }
+
     #[test]
     fn trim_same_line() {
         let mut parser: KVParser<SPDXParsePolicy> = KVParser::default();
         assert_eq!(
             parser
                 .process_line("key: <text>value</text>")
-                .unwrap()
                 .into_inner()
                 .unwrap(),
             KeyValuePair {
@@ -312,21 +297,17 @@ mod test {
             }
         );
     }
+
     #[test]
     fn long_value() {
         let mut parser: KVParser<SPDXParsePolicy> = KVParser::default();
         assert!(parser
             .process_line("key: <text>value")
-            .unwrap()
             .into_inner()
             .is_none());
 
         assert_eq!(
-            parser
-                .process_line("value</text>")
-                .unwrap()
-                .into_inner()
-                .unwrap(),
+            parser.process_line("value</text>").into_inner().unwrap(),
             KeyValuePair {
                 key: "key".to_string(),
                 value: "value

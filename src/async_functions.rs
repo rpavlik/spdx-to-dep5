@@ -6,7 +6,13 @@ use std::pin::Pin;
 
 use futures::{AsyncBufRead, AsyncBufReadExt};
 
-use crate::{record::Record, tag_value::{KeyValuePair, ParsedLine, key_value_parser::{TEXT_CLOSE_TAG, TEXT_OPEN_TAG}}};
+use crate::{
+    record::Record,
+    tag_value::{
+        key_value_parser::{TEXT_CLOSE_TAG, TEXT_OPEN_TAG},
+        KeyValuePair, ParsedLine,
+    },
+};
 
 async fn read_line<R: AsyncBufRead>(mut reader: &mut Pin<Box<R>>) -> Option<String> {
     let mut s = String::new();

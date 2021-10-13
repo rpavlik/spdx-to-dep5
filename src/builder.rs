@@ -1,19 +1,14 @@
 // Copyright 2021, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
-use std::{convert::TryFrom, str::FromStr};
+use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
-use regex::{bytes::NoExpand, Captures, Regex};
+use regex::{Captures, Regex};
 use serde::{de, de::value::BorrowedStrDeserializer, Deserialize};
-use spdx_rs::models::{
-    self, Algorithm, DocumentCreationInformation, FileInformation, FileType, RelationshipType,
-};
+use spdx_rs::models;
 
-use crate::{
-    record::{Record, RecordError},
-    tag_value::key_value_parser::{KeyValuePair, ParsedLine},
-};
+use crate::tag_value::{KeyValuePair, ParsedLine};
 /// An error from operations on a Record
 #[derive(Debug, thiserror::Error)]
 pub enum BuilderError {
@@ -75,7 +70,7 @@ fn try_parsing_checksum_from(
         .pair()
         .ok_or(BuilderError::InvalidField(field_name.to_string()))?;
     let d: BorrowedStrDeserializer<BuilderError> = BorrowedStrDeserializer::new(&pair.key);
-    let algorithm: Algorithm = models::Algorithm::deserialize(d)?;
+    let algorithm = models::Algorithm::deserialize(d)?;
     Ok(models::Checksum {
         algorithm,
         value: pair.value,
@@ -178,7 +173,7 @@ struct DocumentCreationInformationBuilder {
 }
 
 impl FieldReceiver for DocumentCreationInformationBuilder {
-    type Item = DocumentCreationInformation;
+    type Item = models::DocumentCreationInformation;
 
     fn maybe_handle_field(&mut self, field: &KeyValuePair) -> Result<bool, BuilderError> {
         match field.key.as_str() {
