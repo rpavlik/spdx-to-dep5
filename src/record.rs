@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::key_value_parser::KeyValuePair;
+use crate::tag_value::KeyValuePair;
 
 /// An error from operations on a Record
 #[derive(Debug, thiserror::Error)]

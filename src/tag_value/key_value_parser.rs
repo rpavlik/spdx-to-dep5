@@ -180,7 +180,7 @@ impl Default for KVParser {
 
 #[cfg(test)]
 mod test {
-    use crate::key_value_parser::KeyValuePair;
+    use super::KeyValuePair;
 
     use super::KVParser;
 

@@ -11,12 +11,12 @@ use spdx_rs::models::{
 };
 
 use crate::{
-    key_value_parser::{KeyValuePair, ParsedLine},
     record::{Record, RecordError},
+    tag_value::key_value_parser::{KeyValuePair, ParsedLine},
 };
 /// An error from operations on a Record
 #[derive(Debug, thiserror::Error)]
-pub enum ParserError {
+pub enum BuilderError {
     #[error("Found {1} fields named {0} instead of the zero or one expected.")]
     WantedAtMostOneFoundMore(String, usize),
 
@@ -42,7 +42,7 @@ pub enum ParserError {
     Message(String),
 }
 
-impl de::Error for ParserError {
+impl de::Error for BuilderError {
     fn custom<T>(msg: T) -> Self
     where
         T: std::fmt::Display,
@@ -70,11 +70,11 @@ impl de::Error for ParserError {
 fn try_parsing_checksum_from(
     field_name: &str,
     value: &str,
-) -> Result<models::Checksum, ParserError> {
+) -> Result<models::Checksum, BuilderError> {
     let pair = ParsedLine::from(value)
         .pair()
-        .ok_or(ParserError::InvalidField(field_name.to_string()))?;
-    let d: BorrowedStrDeserializer<ParserError> = BorrowedStrDeserializer::new(&pair.key);
+        .ok_or(BuilderError::InvalidField(field_name.to_string()))?;
+    let d: BorrowedStrDeserializer<BuilderError> = BorrowedStrDeserializer::new(&pair.key);
     let algorithm: Algorithm = models::Algorithm::deserialize(d)?;
     Ok(models::Checksum {
         algorithm,
@@ -84,7 +84,7 @@ fn try_parsing_checksum_from(
 
 trait FieldReceiver {
     type Item;
-    fn maybe_handle_field(&mut self, field: &KeyValuePair) -> Result<bool, ParserError>;
+    fn maybe_handle_field(&mut self, field: &KeyValuePair) -> Result<bool, BuilderError>;
     fn maybe_take(&mut self) -> Option<Self::Item>;
     fn has_required_fields(&self) -> bool;
 }
@@ -92,9 +92,9 @@ trait FieldReceiver {
 fn set_single_multiplicity_string(
     dest: &mut Option<String>,
     field: &KeyValuePair,
-) -> Result<bool, ParserError> {
+) -> Result<bool, BuilderError> {
     if dest.is_some() {
-        return Err(ParserError::DuplicateField(field.key.clone()));
+        return Err(BuilderError::DuplicateField(field.key.clone()));
     }
     *dest = Some(field.value.to_string());
     Ok(true)
@@ -103,17 +103,17 @@ fn set_single_multiplicity_transformed<T, F>(
     dest: &mut Option<T>,
     field: &KeyValuePair,
     transformer: F,
-) -> Result<bool, ParserError>
+) -> Result<bool, BuilderError>
 where
-    F: FnOnce(&KeyValuePair) -> Result<T, ParserError>,
+    F: FnOnce(&KeyValuePair) -> Result<T, BuilderError>,
 {
     if dest.is_some() {
-        return Err(ParserError::DuplicateField(field.key.clone()));
+        return Err(BuilderError::DuplicateField(field.key.clone()));
     }
     *dest = Some(transformer(field)?);
     Ok(true)
 }
-fn append_string(dest: &mut Vec<String>, field: &KeyValuePair) -> Result<bool, ParserError> {
+fn append_string(dest: &mut Vec<String>, field: &KeyValuePair) -> Result<bool, BuilderError> {
     dest.push(field.value.to_string());
     Ok(true)
 }
@@ -122,9 +122,9 @@ fn append_transformed<T, F>(
     dest: &mut Vec<T>,
     field: &KeyValuePair,
     transformer: F,
-) -> Result<bool, ParserError>
+) -> Result<bool, BuilderError>
 where
-    F: FnOnce(&KeyValuePair) -> Result<T, ParserError>,
+    F: FnOnce(&KeyValuePair) -> Result<T, BuilderError>,
 {
     dest.push(transformer(field)?);
     Ok(true)
@@ -138,7 +138,7 @@ struct CreationInformationBuilder {
 impl FieldReceiver for CreationInformationBuilder {
     type Item = models::CreationInfo;
 
-    fn maybe_handle_field(&mut self, field: &KeyValuePair) -> Result<bool, ParserError> {
+    fn maybe_handle_field(&mut self, field: &KeyValuePair) -> Result<bool, BuilderError> {
         match field.key.as_str() {
             "Creator" => append_string(&mut self.creator, field),
             "Created" => set_single_multiplicity_transformed(&mut self.created, field, |f| {
@@ -180,7 +180,7 @@ struct DocumentCreationInformationBuilder {
 impl FieldReceiver for DocumentCreationInformationBuilder {
     type Item = DocumentCreationInformation;
 
-    fn maybe_handle_field(&mut self, field: &KeyValuePair) -> Result<bool, ParserError> {
+    fn maybe_handle_field(&mut self, field: &KeyValuePair) -> Result<bool, BuilderError> {
         match field.key.as_str() {
             "SPDXVersion" => set_single_multiplicity_string(&mut self.spdx_version, &field),
             "DataLicense" => set_single_multiplicity_string(&mut self.data_license, &field),
@@ -249,15 +249,15 @@ impl Default for RelationshipsBuilder {
 impl FieldReceiver for RelationshipsBuilder {
     type Item = Vec<models::Relationship>;
 
-    fn maybe_handle_field(&mut self, field: &KeyValuePair) -> Result<bool, ParserError> {
+    fn maybe_handle_field(&mut self, field: &KeyValuePair) -> Result<bool, BuilderError> {
         if field.key == "Relationship" {
             let caps = self
                 .re
                 .captures(&field.value)
-                .ok_or(ParserError::InvalidField(field.key.to_string()))?;
+                .ok_or(BuilderError::InvalidField(field.key.to_string()))?;
             self.relationships.push(
                 captures_to_relationship(&caps)
-                    .ok_or(ParserError::InvalidField(field.key.to_string()))?,
+                    .ok_or(BuilderError::InvalidField(field.key.to_string()))?,
             );
 
             Ok(true)
@@ -329,7 +329,7 @@ impl FileInformationBuilder {
 impl FieldReceiver for FileInformationBuilder {
     type Item = models::FileInformation;
 
-    fn maybe_handle_field(&mut self, field: &KeyValuePair) -> Result<bool, ParserError> {
+    fn maybe_handle_field(&mut self, field: &KeyValuePair) -> Result<bool, BuilderError> {
         match field.key.as_str() {
             KEY_FILENAME => set_single_multiplicity_string(&mut self.file_name, field),
             KEY_SPDXID => set_single_multiplicity_string(&mut self.file_spdx_identifier, field),
@@ -386,7 +386,7 @@ struct FileInformationCollectionBuilder {
 impl FieldReceiver for FileInformationCollectionBuilder {
     type Item = Vec<models::FileInformation>;
 
-    fn maybe_handle_field(&mut self, field: &KeyValuePair) -> Result<bool, ParserError> {
+    fn maybe_handle_field(&mut self, field: &KeyValuePair) -> Result<bool, BuilderError> {
         if !FileInformationBuilder::is_known_field(&field.key) {
             return Ok(false);
         }
@@ -394,7 +394,7 @@ impl FieldReceiver for FileInformationCollectionBuilder {
             if self.pending.has_required_fields() {
                 self.file_info.push(self.pending.maybe_take().unwrap());
             } else {
-                return Err(ParserError::MissingField("something".to_string()));
+                return Err(BuilderError::MissingField("something".to_string()));
             }
         }
         self.pending.maybe_handle_field(field)
@@ -415,9 +415,9 @@ impl FieldReceiver for FileInformationCollectionBuilder {
     }
 }
 
-impl From<chrono::ParseError> for ParserError {
+impl From<chrono::ParseError> for BuilderError {
     fn from(e: chrono::ParseError) -> Self {
-        ParserError::Message(format!("DateTime parsing error: {}", e.to_string()).to_string())
+        BuilderError::Message(format!("DateTime parsing error: {}", e.to_string()).to_string())
     }
 }
 
@@ -426,7 +426,7 @@ const RELATIONSHIP_REGEX_STRING: &str =
 
 fn captures_to_relationship(caps: &Captures) -> Option<models::Relationship> {
     let relationship_type = caps.name("relationship")?.as_str().to_uppercase();
-    let d: BorrowedStrDeserializer<RecordError> = BorrowedStrDeserializer::new(&relationship_type);
+    let d: BorrowedStrDeserializer<BuilderError> = BorrowedStrDeserializer::new(&relationship_type);
     let relationship_type = models::RelationshipType::deserialize(d).ok()?;
     Some(models::Relationship {
         spdx_element_id: caps.name("id")?.as_str().to_owned(),
@@ -444,7 +444,7 @@ pub struct SPDXBuilder {
 }
 
 impl SPDXBuilder {
-    pub fn handle_field(&mut self, field: &KeyValuePair) -> Result<(), ParserError> {
+    pub fn handle_field(&mut self, field: &KeyValuePair) -> Result<(), BuilderError> {
         self.maybe_handle_field(field)?;
         Ok(())
     }
@@ -457,7 +457,7 @@ impl SPDXBuilder {
 impl FieldReceiver for SPDXBuilder {
     type Item = models::SPDX;
 
-    fn maybe_handle_field(&mut self, field: &KeyValuePair) -> Result<bool, ParserError> {
+    fn maybe_handle_field(&mut self, field: &KeyValuePair) -> Result<bool, BuilderError> {
         Ok(self
             .document_creation_information
             .maybe_handle_field(field)?
@@ -495,7 +495,7 @@ trait ChainTryHandle: Sized {
 }
 
 impl ChainTryHandle for Option<KeyValuePair> {
-    type Error = ParserError;
+    type Error = BuilderError;
     fn maybe_handle<T: FieldReceiver>(self, handler: &mut T) -> Result<Self, Self::Error> {
         Ok(match self {
             Some(field) => {
