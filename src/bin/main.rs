@@ -106,19 +106,35 @@ impl AllFiles {
 }
 
 fn main() -> Result<(), BuilderError> {
-    let filename = env::args().take(1).next();
+    let filename = env::args().skip(1).next();
     let filename = filename.unwrap_or("summary.spdx".to_string());
+    println!("Opening {}", filename);
     let file = std::fs::File::open(filename).unwrap();
     let line_reader = std::io::BufReader::new(file).lines();
 
     let mut parser: KVParser<SPDXParsePolicy> = KVParser::default();
     let mut builder = SPDXBuilder::default();
     for result in line_reader {
-        let line = result.unwrap();
-        if let Some(field) = parser.process_line(&line).ok_or_else_err_on_keyless(|| {
-            BuilderError::Message("Found line with no key".to_string())
-        })? {
-            builder.handle_field(&field)?;
+        match result {
+            Ok(line) => {
+                let parse_result = parser.process_line(&line);
+                let line_num = parse_result.line_number();
+                match parse_result.into_inner() {
+                    key_value_parser::Output::EmptyLine => {}
+                    key_value_parser::Output::Pending => {}
+                    key_value_parser::Output::KeylessLine(_) => {
+                        eprintln!("Found keyless line on line {}", line_num);
+                    }
+                    key_value_parser::Output::Output(field) => {
+                        builder.handle_field(&field)?;
+                    }
+                }
+            }
+            Err(e) => {
+                let bad_line_num = parser.process_line("").line_number();
+                eprintln!("Got error {} on line {}", e, bad_line_num);
+                return Err(BuilderError::Message(e.to_string()));
+            }
         }
     }
     let doc = builder.try_into_result().unwrap();
