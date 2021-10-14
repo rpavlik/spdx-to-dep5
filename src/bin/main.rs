@@ -17,6 +17,7 @@ use std::{
     collections::{HashMap, HashSet},
     env,
     io::BufRead,
+    iter,
     path::{Path, PathBuf},
 };
 
@@ -55,9 +56,6 @@ fn cleanup_copyright_text(text: &str) -> Vec<Cow<str>> {
         .collect()
 }
 
-/// A reference to both a parent directory and a set of all pathbufs in that directory, from [DirectoryAndFullPathBufMap]
-struct FullPathBufsInADirectory<'a>(&'a Option<PathBuf>, &'a HashSet<PathBuf>);
-
 /// A collection of full PathBuf paths, grouped by their parent directory
 #[derive(Debug, Default)]
 struct DirectoryAndFullPathBufMap(HashMap<Option<PathBuf>, HashSet<PathBuf>>);
@@ -77,33 +75,21 @@ impl DirectoryAndFullPathBufMap {
         self.0.values().flatten()
     }
 
-    fn iter(&self) -> impl Iterator<Item = FullPathBufsInADirectory> {
-        self.0.iter().map(|(k, v)| FullPathBufsInADirectory(k, v))
+    /// Get all paths, flattening directories to wildcards where possible
+    fn iter_paths_concise<'a>(
+        &'a self,
+        fgk: &'a FileGroupKey,
+        fgk_per_dir: &'a FileGroupKeysPerDirectory,
+    ) -> impl Iterator<Item = String> + 'a {
+        self.0
+            .iter()
+            .map(move |(dir, all_files)| fgk_per_dir.iter_collapsed_paths_for(dir, fgk, all_files))
+            .flatten()
     }
-
     fn iter_dirs(&self) -> impl Iterator<Item = &Option<PathBuf>> {
         self.0.keys()
     }
 }
-
-// /// A collection of path references, grouped by their parent directory
-// #[derive(Debug, Default)]
-// struct DirectoryAndFullPathsMap<'a>(HashMap<Option<PathBuf>, HashSet<&'a Path>>);
-
-// impl<'a> DirectoryAndFullPathsMap<'a> {
-//     fn extend_from(mut self, collection: &'a DirectoryAndFullPathBufMap) -> Self {
-//         for (dir, full_paths) in collection.0.iter() {
-//             self.0
-//                 .entry(dir.clone())
-//                 .or_insert_with(|| HashSet::new())
-//                 .extend(full_paths.iter().map(|p| Path::new(p)));
-//         }
-
-//         self
-//     }
-
-//     fn is_subset_of(&self, collection: &)
-// }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct FileGroupKey {
@@ -132,6 +118,31 @@ impl FileGroupKeysPerDirectory {
             self.insert(fgk.clone(), dir.clone());
         }
     }
+
+    /// Look up a directory, and see if the provided FileGroupKey is the only one listed for the directory,
+    /// meaning it's safe to wildcard.
+    fn dir_has_only_this_fgk(&self, dir: &Option<PathBuf>, fgk: &FileGroupKey) -> bool {
+        self.0.get(dir).map_or(false, |fgks_for_this_dir| {
+            assert!(fgks_for_this_dir.contains(fgk));
+            fgks_for_this_dir.len() == 1
+        })
+    }
+
+    /// Collapse this list into a wildcard if possible.
+    fn iter_collapsed_paths_for<'a>(
+        &self,
+        dir: &Option<PathBuf>,
+        fgk: &FileGroupKey,
+        files: &'a HashSet<PathBuf>,
+    ) -> Box<dyn Iterator<Item = String> + 'a> {
+        if self.dir_has_only_this_fgk(dir, fgk) {
+            Box::new(iter::once(dir.as_ref().map_or("*".to_string(), |d| {
+                d.join("*").to_string_lossy().to_string()
+            })))
+        } else {
+            Box::new(files.iter().map(|x| x.to_string_lossy().to_string()))
+        }
+    }
 }
 
 struct FileKeyVal(FileGroupKey, DirectoryAndFullPathBufMap);
@@ -148,14 +159,6 @@ struct AllFiles {
 }
 
 impl AllFiles {
-    // fn compute_summary_file_map(&self) -> DirectoryAndFullPathsMap {
-    //     let mut ret = DirectoryAndFullPathsMap::default();
-    //     for entry in self.entries.iter() {
-    //         ret.extend_from(&entry.1);
-    //     }
-    //     ret
-    // }
-
     fn compute_fgk_per_directory(&self) -> FileGroupKeysPerDirectory {
         let mut ret = FileGroupKeysPerDirectory::default();
         for (fgk, dirs_and_paths) in &self.entries {
@@ -163,26 +166,6 @@ impl AllFiles {
         }
         ret
     }
-}
-
-impl FileKeyVal {
-    fn into_files_paragraph(self) -> FilesParagraph {
-        let (key, files) = (self.0, self.1);
-        FilesParagraph {
-            files: files
-                .iter_paths()
-                .map(|v| v.to_string_lossy())
-                .collect_vec()
-                .join("\n")
-                .into(),
-            copyright: key.copyright_text.into(),
-            license: key.license.into(),
-            comment: None,
-        }
-    }
-}
-
-impl AllFiles {
     fn from_iter(iter: impl Iterator<Item = models::FileInformation>) -> Self {
         let mut ret = Self::default();
         ret.accumulate_from_iter(iter);
@@ -192,6 +175,12 @@ impl AllFiles {
         self.entries
             .into_iter()
             .map(|(key, files)| FileKeyVal(key, files).into_files_paragraph())
+    }
+    fn into_concise_paragraphs(self) -> impl Iterator<Item = FilesParagraph> {
+        let fgk_per_directory = self.compute_fgk_per_directory();
+        self.entries.into_iter().map(move |(key, files)| {
+            FileKeyVal(key, files).into_concise_files_paragraph(&fgk_per_directory)
+        })
     }
     fn accumulate_from_iter(&mut self, iter: impl Iterator<Item = models::FileInformation>) {
         for item in iter {
@@ -213,6 +202,40 @@ impl AllFiles {
     }
 }
 
+impl FileKeyVal {
+    fn into_files_paragraph(self) -> FilesParagraph {
+        let (key, files) = (self.0, self.1);
+        FilesParagraph {
+            files: files
+                .iter_paths()
+                .map(|v| v.to_string_lossy())
+                .collect_vec()
+                .join("\n")
+                .into(),
+            copyright: key.copyright_text.into(),
+            license: key.license.into(),
+            comment: None,
+        }
+    }
+
+    fn into_concise_files_paragraph(
+        self,
+        fgk_per_dir: &FileGroupKeysPerDirectory,
+    ) -> FilesParagraph {
+        let (fgk, files) = (self.0, self.1);
+        let files = files
+            .iter_paths_concise(&fgk, fgk_per_dir)
+            .sorted_unstable()
+            .collect_vec()
+            .join("\n");
+        FilesParagraph {
+            files: files.into(),
+            copyright: fgk.copyright_text.into(),
+            license: fgk.license.into(),
+            comment: None,
+        }
+    }
+}
 fn main() -> Result<(), BuilderError> {
     let filename = env::args().skip(1).next();
     let filename = filename.unwrap_or("summary.spdx".to_string());
@@ -252,7 +275,8 @@ fn main() -> Result<(), BuilderError> {
         .into_iter()
         .filter(|f| f.copyright_text != "NONE");
     let paragraphs: Vec<String> = AllFiles::from_iter(spdx_information)
-        .into_paragraphs()
+        // .into_paragraphs()
+        .into_concise_paragraphs()
         .filter_map(|paragraph| paragraph.try_to_string().ok().flatten())
         .collect();
     println!("stuff: {}", paragraphs.join("\n\n"));
