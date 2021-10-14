@@ -4,3 +4,9 @@
 venv/
 *.pyc
 *.pyo
+*.spdx
+.*
+!.gitignore
+!.reuse
+
+/target
