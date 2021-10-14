@@ -6,3 +6,4 @@ pub mod builder;
 pub mod cleanup;
 pub mod control_file;
 pub mod dep5;
+pub mod parse;

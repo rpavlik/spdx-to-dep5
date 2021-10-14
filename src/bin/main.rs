@@ -3,20 +3,21 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use itertools::Itertools;
-use key_value_parser::{policies::SPDXParsePolicy, KVParser};
-use lazy_static::lazy_static;
-use regex::Regex;
 use spdx_rs::models;
-use spdx_to_dep5::{builder::{BuilderError, SPDXBuilder}, cleanup::{StrExt, cleanup_copyright_text}, control_file::{Paragraph, Paragraphs}, dep5::{FilesParagraph, HeaderParagraph}};
+use spdx_to_dep5::{
+    builder::BuilderError,
+    cleanup::{cleanup_copyright_text, StrExt},
+    control_file::{Paragraph, Paragraphs},
+    dep5::{FilesParagraph, HeaderParagraph},
+    parse::parse_tag_value,
+};
 use std::{
-    borrow::Cow,
     collections::{HashMap, HashSet},
     env,
     io::BufRead,
     iter,
     path::PathBuf,
 };
-
 
 /// A collection of full PathBuf paths, grouped by their parent directory
 #[derive(Debug, Default)]
@@ -203,33 +204,15 @@ fn main() -> Result<(), BuilderError> {
     let file = std::fs::File::open(filename).unwrap();
     let line_reader = std::io::BufReader::new(file).lines();
 
-    let mut parser: KVParser<SPDXParsePolicy> = KVParser::default();
-    let mut builder = SPDXBuilder::default();
-    for result in line_reader {
-        match result {
-            Ok(line) => {
-                let parse_result = parser.process_line(&line);
-                let line_num = parse_result.line_number();
-                match parse_result.into_inner() {
-                    key_value_parser::Output::EmptyLine => {}
-                    key_value_parser::Output::Pending => {}
-                    key_value_parser::Output::KeylessLine(_) => {
-                        eprintln!("Found keyless line on line {}", line_num);
-                    }
-                    key_value_parser::Output::Output(field) => {
-                        builder.handle_field(&field)?;
-                    }
-                }
-            }
-            Err(e) => {
-                let bad_line_num = parser.process_line("").line_number();
-                eprintln!("Got error {} on line {}", e, bad_line_num);
-                return Err(BuilderError::Message(e.to_string()));
-            }
-        }
+    let (doc, errs) = parse_tag_value(line_reader)?;
+    if let Some(errs) = errs {
+        Err(BuilderError::Message(
+            errs.into_iter()
+                .map(|e| e.to_string())
+                .collect_vec()
+                .join("\n"),
+        ))?
     }
-    let doc = builder.try_into_result().unwrap();
-
     let extensions = [".c", ".cpp", ".h", ".hpp", ".py", ".md"];
     let spdx_information = doc
         .file_information
