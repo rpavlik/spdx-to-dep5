@@ -3,18 +3,22 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use itertools::Itertools;
-use key_value_parser::{policies::SPDXParsePolicy, KVParser, ParserOutput};
+use key_value_parser::{policies::SPDXParsePolicy, KVParser};
 use lazy_static::lazy_static;
 use regex::Regex;
 use spdx_rs::models;
-use spdx_to_dep5::{builder::{BuilderError, SPDXBuilder}, control_file::{Paragraph, Paragraphs}, dep5::{FilesParagraph, HeaderParagraph}};
+use spdx_to_dep5::{
+    builder::{BuilderError, SPDXBuilder},
+    control_file::{Paragraph, Paragraphs},
+    dep5::{FilesParagraph, HeaderParagraph},
+};
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
     env,
     io::BufRead,
     iter,
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 trait StrExt {
@@ -38,7 +42,7 @@ fn cleanup_copyright_text(text: &str) -> Vec<Cow<str>> {
     lazy_static! {
         static ref RE: Regex = Regex::new("SPDX-License-Identifier:.*$").unwrap();
     }
-    text.split("\n")
+    text.split('\n')
         .map(|line| {
             line.trim()
                 .strip_prefix_if_present("SPDX-FileCopyrightText:")
@@ -62,7 +66,7 @@ impl DirectoryAndFullPathBufMap {
         let dir = filename.parent().map(|v| v.to_path_buf());
         self.0
             .entry(dir)
-            .or_insert_with(|| HashSet::new())
+            .or_insert_with(HashSet::new)
             .insert(filename)
     }
 
@@ -99,10 +103,7 @@ struct FileGroupKeysPerDirectory(HashMap<Option<PathBuf>, HashSet<FileGroupKey>>
 
 impl FileGroupKeysPerDirectory {
     fn insert(&mut self, fgk: FileGroupKey, dir: Option<PathBuf>) -> bool {
-        self.0
-            .entry(dir)
-            .or_insert_with(|| HashSet::new())
-            .insert(fgk)
+        self.0.entry(dir).or_insert_with(HashSet::new).insert(fgk)
     }
 
     fn extend_from<'a>(
@@ -193,7 +194,7 @@ impl AllFiles {
         };
         self.entries
             .entry(key)
-            .or_insert_with(|| DirectoryAndFullPathBufMap::default())
+            .or_insert_with(DirectoryAndFullPathBufMap::default)
             .insert_full_path(filename);
     }
 }
@@ -234,8 +235,8 @@ impl FileKeyVal {
 }
 
 fn main() -> Result<(), BuilderError> {
-    let filename = env::args().skip(1).next();
-    let filename = filename.unwrap_or("summary.spdx".to_string());
+    let filename = env::args().nth(1);
+    let filename = filename.unwrap_or_else(|| "summary.spdx".to_string());
     eprintln!("Opening {}", filename);
     let file = std::fs::File::open(filename).unwrap();
     let line_reader = std::io::BufReader::new(file).lines();

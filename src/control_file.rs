@@ -62,7 +62,7 @@ impl From<String> for SingleLineField {
 }
 impl Field for SingleLineField {
     fn try_to_string(&self, field_name: &str) -> Result<Option<String>, ControlFileError> {
-        if self.0.contains("\n") {
+        if self.0.contains('\n') {
             return Err(ControlFileError::UnexpectedNewline(field_name.to_string()));
         }
         format_field_first_line(field_name, Some(&self.0)).map(Some)
@@ -79,7 +79,7 @@ impl From<String> for MultilineField {
 }
 impl Field for MultilineField {
     fn try_to_string(&self, field_name: &str) -> Result<Option<String>, ControlFileError> {
-        let mut lines = self.0.split("\n");
+        let mut lines = self.0.split('\n');
         let first = lines.next();
         format_field(field_name, first, Some(lines)).map(Some)
     }
@@ -95,7 +95,7 @@ impl From<String> for MultilineEmptyFirstLineField {
 }
 impl Field for MultilineEmptyFirstLineField {
     fn try_to_string(&self, field_name: &str) -> Result<Option<String>, ControlFileError> {
-        let lines = self.0.split("\n");
+        let lines = self.0.split('\n');
         format_field(field_name, None, Some(lines)).map(Some)
     }
 }
@@ -110,8 +110,8 @@ impl From<String> for SingleLineOrMultilineEmptyFirstLineField {
 }
 impl Field for SingleLineOrMultilineEmptyFirstLineField {
     fn try_to_string(&self, field_name: &str) -> Result<Option<String>, ControlFileError> {
-        if self.0.contains("\n") {
-            format_field(field_name, None, Some(self.0.split("\n")))
+        if self.0.contains('\n') {
+            format_field(field_name, None, Some(self.0.split('\n')))
         } else {
             format_field_first_line(field_name, Some(&self.0))
         }
