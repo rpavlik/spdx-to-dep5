@@ -10,7 +10,7 @@ use spdx_rs::models;
 use spdx_to_dep5::{
     builder::{BuilderError, SPDXBuilder},
     control_file::Paragraph,
-    dep5::FilesParagraph,
+    dep5::{FilesParagraph, HeaderParagraph},
 };
 use std::{
     borrow::Cow,
@@ -239,7 +239,7 @@ impl FileKeyVal {
 fn main() -> Result<(), BuilderError> {
     let filename = env::args().skip(1).next();
     let filename = filename.unwrap_or("summary.spdx".to_string());
-    println!("Opening {}", filename);
+    eprintln!("Opening {}", filename);
     let file = std::fs::File::open(filename).unwrap();
     let line_reader = std::io::BufReader::new(file).lines();
 
@@ -274,11 +274,16 @@ fn main() -> Result<(), BuilderError> {
         .file_information
         .into_iter()
         .filter(|f| f.copyright_text != "NONE");
-    let paragraphs: Vec<String> = AllFiles::from_iter(spdx_information)
-        // .into_paragraphs()
-        .into_concise_paragraphs()
+    let paragraphs: Vec<String> = iter::once(HeaderParagraph::default())
         .filter_map(|paragraph| paragraph.try_to_string().ok().flatten())
+        .chain(
+            AllFiles::from_iter(spdx_information)
+                // .into_paragraphs()
+                .into_concise_paragraphs()
+                .filter_map(|paragraph| paragraph.try_to_string().ok().flatten())
+                .sorted(),
+        )
         .collect();
-    println!("stuff: {}", paragraphs.join("\n\n"));
+    println!("{}", paragraphs.join("\n\n"));
     Ok(())
 }
