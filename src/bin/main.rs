@@ -268,10 +268,12 @@ fn main() -> Result<(), BuilderError> {
     }
     let doc = builder.try_into_result().unwrap();
 
+    let extensions = [".c", ".cpp", ".h", ".hpp", ".py", ".md"];
     let spdx_information = doc
         .file_information
         .into_iter()
-        .filter(|f| f.copyright_text != "NONE");
+        .filter(|f| f.copyright_text != "NONE")
+        .filter(|f| extensions.iter().any(|ext| f.file_name.ends_with(ext)));
     let paragraphs: Vec<String> = HeaderParagraph::default()
         .try_to_string_ok()
         .into_iter()
