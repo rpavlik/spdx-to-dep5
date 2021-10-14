@@ -132,6 +132,23 @@ impl<F: Field> Field for Option<F> {
 pub trait Paragraph {
     /// Convert a number of fields to a string with no trailing newline.
     fn try_to_string(&self) -> Result<Option<String>, ControlFileError>;
+
+    /// Convert a number of fields to a string with no trailing newline, dropping any errors
+    fn try_to_string_ok(&self) -> Option<String> {
+        self.try_to_string().ok().flatten()
+    }
+}
+
+/// Trait providing features for iterators over paragraphs.
+pub trait Paragraphs<'a>: 'a {
+    /// Iterate over the strings for paragraphs that successfully converted to strings.
+    fn flatten_to_strings(self) -> Box<dyn Iterator<Item = String> + 'a>;
+}
+
+impl<'a, T: Paragraph, U: 'a + Iterator<Item = T>> Paragraphs<'a> for U {
+    fn flatten_to_strings(self) -> Box<dyn Iterator<Item = String> + 'a> {
+        Box::new(self.filter_map(|paragraph| paragraph.try_to_string_ok()))
+    }
 }
 
 #[derive(Debug, Default)]

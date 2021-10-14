@@ -7,11 +7,7 @@ use key_value_parser::{policies::SPDXParsePolicy, KVParser, ParserOutput};
 use lazy_static::lazy_static;
 use regex::Regex;
 use spdx_rs::models;
-use spdx_to_dep5::{
-    builder::{BuilderError, SPDXBuilder},
-    control_file::Paragraph,
-    dep5::{FilesParagraph, HeaderParagraph},
-};
+use spdx_to_dep5::{builder::{BuilderError, SPDXBuilder}, control_file::{Paragraph, Paragraphs}, dep5::{FilesParagraph, HeaderParagraph}};
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
@@ -236,6 +232,7 @@ impl FileKeyVal {
         }
     }
 }
+
 fn main() -> Result<(), BuilderError> {
     let filename = env::args().skip(1).next();
     let filename = filename.unwrap_or("summary.spdx".to_string());
@@ -274,13 +271,13 @@ fn main() -> Result<(), BuilderError> {
         .file_information
         .into_iter()
         .filter(|f| f.copyright_text != "NONE");
-    let paragraphs: Vec<String> = iter::once(HeaderParagraph::default())
-        .filter_map(|paragraph| paragraph.try_to_string().ok().flatten())
+    let paragraphs: Vec<String> = HeaderParagraph::default()
+        .try_to_string_ok()
+        .into_iter()
         .chain(
             AllFiles::from_iter(spdx_information)
-                // .into_paragraphs()
                 .into_concise_paragraphs()
-                .filter_map(|paragraph| paragraph.try_to_string().ok().flatten())
+                .flatten_to_strings()
                 .sorted(),
         )
         .collect();
