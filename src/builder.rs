@@ -1,7 +1,7 @@
 // Copyright 2021, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
-use std::str::FromStr;
+use std::{io, str::FromStr};
 
 use chrono::{DateTime, Utc};
 use key_value_parser::{KeyValuePair, ParsedLine, ParserOutput};
@@ -43,6 +43,12 @@ impl de::Error for BuilderError {
         T: std::fmt::Display,
     {
         Self::Message(msg.to_string())
+    }
+}
+
+impl From<io::Error> for BuilderError {
+    fn from(e: io::Error) -> Self {
+        BuilderError::Message(e.to_string())
     }
 }
 
