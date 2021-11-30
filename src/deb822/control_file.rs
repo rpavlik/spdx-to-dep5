@@ -7,7 +7,9 @@
 //! See <https://www.debian.org/doc/debian-policy/ch-controlfields#s-controlsyntax>
 
 use thiserror;
-pub fn format_field_first_line(
+
+/// Format the first line of a field: the name and an optional single line value.
+fn format_field_first_line(
     field_name: &str,
     single_line_value: Option<&str>,
 ) -> Result<String, ControlFileError> {
@@ -17,7 +19,12 @@ pub fn format_field_first_line(
     })
 }
 
-pub fn format_field<'a, T: Iterator<Item = &'a str>>(
+/// Format a field, specifying the field name, optional single/first line value,
+/// and optional iterator over subsequent value lines.
+///
+/// Used in implementing Field: Use one of the newtypes implementing Field
+/// instead of calling this from outside the crate.
+fn format_field<'a, T: Iterator<Item = &'a str>>(
     field_name: &str,
     single_line_value: Option<&str>,
     subsequent_lines: Option<T>,
@@ -47,11 +54,14 @@ pub enum ControlFileError {
     #[error("Unexpected newline in field {0}")]
     UnexpectedNewline(String),
 }
+
+/// A trait implemented for different types of Debian "control file" (aka deb822) fields.
 pub trait Field {
     /// Convert to a string with no trailing newline.
     fn try_to_string(&self, field_name: &str) -> Result<Option<String>, ControlFileError>;
 }
 
+/// Newtype wrapping a single line field value: name and value on the same line.
 #[derive(Debug, Clone)]
 pub struct SingleLineField(pub String);
 
@@ -69,6 +79,8 @@ impl Field for SingleLineField {
     }
 }
 
+/// Newtype wrapping a multi-line field value: value may be multiple lines,
+/// and starts on the same line as the name.
 #[derive(Debug, Clone)]
 pub struct MultilineField(pub String);
 
@@ -77,6 +89,7 @@ impl From<String> for MultilineField {
         Self(s)
     }
 }
+
 impl Field for MultilineField {
     fn try_to_string(&self, field_name: &str) -> Result<Option<String>, ControlFileError> {
         let mut lines = self.0.split('\n');
@@ -85,6 +98,7 @@ impl Field for MultilineField {
     }
 }
 
+/// Newtype wrapping a multi-line field value where the value starts on the line following the name.
 #[derive(Debug, Clone)]
 pub struct MultilineEmptyFirstLineField(pub String);
 
@@ -100,6 +114,9 @@ impl Field for MultilineEmptyFirstLineField {
     }
 }
 
+/// Newtype wrapping a multi-line field value: value may be multiple lines,
+/// and is on the same line as the name if single-line, but starts on the subsequent
+/// line if multi-line.
 #[derive(Debug, Clone)]
 pub struct SingleLineOrMultilineEmptyFirstLineField(pub String);
 
@@ -119,6 +136,7 @@ impl Field for SingleLineOrMultilineEmptyFirstLineField {
     }
 }
 
+/// An optional field is still a field
 impl<F: Field> Field for Option<F> {
     fn try_to_string(&self, field_name: &str) -> Result<Option<String>, ControlFileError> {
         if let Some(field) = self {
@@ -129,8 +147,14 @@ impl<F: Field> Field for Option<F> {
     }
 }
 
+/// Trait to implement for various types of control file paragraphs.
+///
+/// Typically structures implementing this trait will hold one or more types implementing Field.
 pub trait Paragraph {
     /// Convert a number of fields to a string with no trailing newline.
+    ///
+    /// Recommend implementing this with a call to ParagraphAccumulator::default(),
+    /// with one or more chained `.write()?` calls, terminated by a call to the `to_string()` method.
     fn try_to_string(&self) -> Result<Option<String>, ControlFileError>;
 
     /// Convert a number of fields to a string with no trailing newline, dropping any errors
@@ -151,12 +175,16 @@ impl<'a, T: Paragraph, U: 'a + Iterator<Item = T>> Paragraphs<'a> for U {
     }
 }
 
+/// Lets you incrementally serialize a paragraph, a field at a time.
+///
+/// Most useful in implementing Paragraph.
 #[derive(Debug, Default)]
 pub struct ParagraphAccumulator {
     field_lines: Vec<String>,
 }
 
 impl ParagraphAccumulator {
+    /// Write a field to this paragraph, omitting it if its `try_to_string` method returned `Ok(None)`.
     pub fn write<F: Field>(
         mut self,
         field_name: &str,
@@ -170,6 +198,7 @@ impl ParagraphAccumulator {
 }
 
 impl ToString for ParagraphAccumulator {
+    /// Return a string containing the whole paragraph, with no trailing newline.
     fn to_string(&self) -> String {
         self.field_lines.join("\n")
     }

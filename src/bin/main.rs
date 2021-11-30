@@ -7,8 +7,10 @@ use spdx_rs::{models, parsers::spdx_from_tag_value};
 use spdx_to_dep5::{
     builder::BuilderError,
     cleanup::{cleanup_copyright_text, StrExt},
-    control_file::{Paragraph, Paragraphs},
-    dep5::{FilesParagraph, HeaderParagraph},
+    deb822::{
+        control_file::{Paragraph, Paragraphs},
+        dep5::{FilesParagraph, HeaderParagraph},
+    },
 };
 use std::{
     collections::{HashMap, HashSet},

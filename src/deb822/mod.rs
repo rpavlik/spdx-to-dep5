@@ -2,7 +2,5 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-pub mod builder;
-pub mod cleanup;
-pub mod deb822;
-pub mod parse;
+pub mod control_file;
+pub mod dep5;
