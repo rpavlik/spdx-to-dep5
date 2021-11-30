@@ -3,19 +3,16 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use itertools::Itertools;
-use spdx_rs::models;
+use spdx_rs::{models, parsers::spdx_from_tag_value};
 use spdx_to_dep5::{
     builder::BuilderError,
     cleanup::{cleanup_copyright_text, StrExt},
     control_file::{Paragraph, Paragraphs},
     dep5::{FilesParagraph, HeaderParagraph},
-    parse::parse_tag_value,
 };
 use std::{
     collections::{HashMap, HashSet},
-    env,
-    io::BufRead,
-    iter,
+    env, iter,
     path::PathBuf,
 };
 
@@ -201,18 +198,9 @@ fn main() -> Result<(), BuilderError> {
     let filename = env::args().nth(1);
     let filename = filename.unwrap_or_else(|| "summary.spdx".to_string());
     eprintln!("Opening {}", filename);
-    let file = std::fs::File::open(filename).unwrap();
-    let line_reader = std::io::BufReader::new(file).lines();
 
-    let (doc, errs) = parse_tag_value(line_reader)?;
-    if let Some(errs) = errs {
-        Err(BuilderError::Message(
-            errs.into_iter()
-                .map(|e| e.to_string())
-                .collect_vec()
-                .join("\n"),
-        ))?
-    }
+    let file = std::fs::read_to_string(filename)?;
+    let doc = spdx_from_tag_value(&file)?;
     let extensions = [".c", ".cpp", ".h", ".hpp", ".py", ".md"];
     let spdx_information = doc
         .file_information
