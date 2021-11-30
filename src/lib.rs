@@ -6,3 +6,4 @@ pub mod builder;
 pub mod cleanup;
 pub mod deb822;
 pub mod parse;
+pub mod tree;
