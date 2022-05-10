@@ -2,20 +2,28 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use std::borrow::Cow;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::borrow::Cow;
 
 /// Helpful additions to strings.
 pub trait StrExt {
     fn strip_prefix_if_present(&self, prefix: &str) -> &str;
+    fn strip_suffix_if_present(&self, suffix: &str) -> &str;
     fn strip_match_if_present(&self, re: &Regex) -> Cow<str>;
 }
 impl StrExt for str {
     fn strip_prefix_if_present(&self, prefix: &str) -> &str {
-        if let Some(prefix_removed) = self.strip_prefix(prefix) {
-            prefix_removed.trim()
+        if let Some(after_removed) = self.strip_prefix(prefix) {
+            after_removed.trim()
+        } else {
+            self
+        }
+    }
+    fn strip_suffix_if_present(&self, suffix: &str) -> &str {
+        if let Some(after_removed) = self.strip_suffix(suffix) {
+            after_removed.trim()
         } else {
             self
         }
@@ -27,6 +35,7 @@ impl StrExt for str {
 
 pub fn cleanup_copyright_text(text: &str) -> Vec<Cow<str>> {
     lazy_static! {
+        // we don't want the license in the copyright text
         static ref RE: Regex = Regex::new("SPDX-License-Identifier:.*$").unwrap();
     }
     text.split('\n')
