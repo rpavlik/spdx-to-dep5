@@ -80,7 +80,7 @@ fn find_or_create_node(arena: &mut Arena<Element>, root: NodeId, path: &str) -> 
 }
 
 pub struct CopyrightDataTree {
-    arena: Arena<Element>,
+    treeArena: Arena<Element>,
     root: NodeId,
     metadata: TiVec<MetadataId, Metadata>,
     metadata_map: HashMap<Metadata, MetadataId>,
@@ -91,7 +91,7 @@ impl CopyrightDataTree {
         let mut arena = Arena::new();
         let root = arena.new_node(Element::new("."));
         Self {
-            arena,
+            treeArena: arena,
             root,
             metadata: TiVec::default(),
             metadata_map: HashMap::default(),
@@ -116,8 +116,8 @@ impl CopyrightDataTree {
             license,
         };
         let metadata_id = self.find_or_insert_metadata(metadata);
-        let id = find_or_create_node(&mut self.arena, self.root, &filename);
-        let node = self.arena.get_mut(id).unwrap();
+        let id = find_or_create_node(&mut self.treeArena, self.root, &filename);
+        let node = self.treeArena.get_mut(id).unwrap();
         node.get_mut().metadata = Some(metadata_id);
     }
 

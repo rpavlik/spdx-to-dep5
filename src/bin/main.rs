@@ -11,6 +11,7 @@ use spdx_to_dep5::{
         control_file::{Paragraph, Paragraphs},
         dep5::{FilesParagraph, HeaderParagraph},
     },
+    tree::CopyrightDataTree,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -209,6 +210,8 @@ fn main() -> Result<(), BuilderError> {
         .into_iter()
         .filter(|f| f.copyright_text != "NONE")
         .filter(|f| extensions.iter().any(|ext| f.file_name.ends_with(ext)));
+
+    let tree = CopyrightDataTree::from_iter(spdx_information.clone());
     let paragraphs: Vec<String> = HeaderParagraph::default()
         .try_to_string_ok()
         .into_iter()
