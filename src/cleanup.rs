@@ -1,4 +1,4 @@
-// Copyright 2021, Collabora, Ltd.
+// Copyright 2021-2022, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
@@ -13,6 +13,7 @@ pub trait StrExt {
     fn strip_suffix_if_present(&self, suffix: &str) -> &str;
     fn strip_match_if_present(&self, re: &Regex) -> Cow<str>;
 }
+
 impl StrExt for str {
     fn strip_prefix_if_present(&self, prefix: &str) -> &str {
         if let Some(after_removed) = self.strip_prefix(prefix) {
@@ -37,7 +38,6 @@ pub fn cleanup_copyright_text(text: &str) -> Vec<Cow<str>> {
     lazy_static! {
         // we don't want the license in the copyright text
         static ref RE: Regex = Regex::new("(SPDX-License-Identifier:.*|(\\n|,|')+)$").unwrap();
-        // static ref NONSENSE_AT_THE_END = Regex::new("(")
     }
     text.split('\n')
         .map(|line| {
