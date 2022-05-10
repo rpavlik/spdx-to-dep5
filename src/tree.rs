@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, hash::Hash, iter::FromIterator};
 
 use derive_more::{From, Into};
 use indextree::{Arena, Node, NodeEdge, NodeId, Traverse};
@@ -43,7 +43,7 @@ impl Element {
 /// Find an element that is a child of `parent_node_id` that satisfies `pred`, and return its ID.
 /// If none exists, create a new element by calling `factory()` and appending it.
 /// Return the child node ID in either case.
-fn get_or_insert_child<'a, P, F>(
+fn get_or_insert_child<P, F>(
     arena: &mut Arena<Element>,
     parent_node_id: NodeId,
     pred: P,
@@ -53,18 +53,14 @@ where
     P: Fn(&Node<Element>) -> bool,
     F: FnOnce() -> Element,
 {
-    let maybe_node_id = parent_node_id.children(&arena).find(|id| {
-        // let pred = &pred;
-        arena.get(*id).map_or(false, |node| pred(node))
-    });
-    match maybe_node_id {
-        Some(found_node_id) => found_node_id,
-        None => {
+    parent_node_id
+        .children(arena)
+        .find(|&id| arena.get(id).map_or(false, &pred))
+        .unwrap_or_else(|| {
             let new_id = arena.new_node(factory());
             parent_node_id.append(new_id, arena);
             new_id
-        }
-    }
+        })
 }
 
 /// Find or create a node in the `arena` (rooted at `root`), corresponding to the provided path, split on '/' into path segments.
@@ -75,7 +71,7 @@ fn find_or_create_node(arena: &mut Arena<Element>, root: NodeId, path: &str) -> 
             arena,
             parent_id,
             |node| node.get().path_segment == path_segment,
-            || Element::new(&path_segment),
+            || Element::new(path_segment),
         )
     })
 }
@@ -99,6 +95,14 @@ pub struct CopyrightDataTree {
     metadata_map: HashMap<Metadata, MetadataId>,
 }
 
+impl Extend<models::FileInformation> for CopyrightDataTree {
+    fn extend<T: IntoIterator<Item = models::FileInformation>>(&mut self, iter: T) {
+        for item in iter {
+            self.accumulate(&item)
+        }
+    }
+}
+
 impl CopyrightDataTree {
     fn new() -> Self {
         let mut arena = Arena::new();
@@ -110,29 +114,17 @@ impl CopyrightDataTree {
             metadata_map: HashMap::default(),
         }
     }
-    /// Make a new instance from an iterator of SPDX file information.
-    pub fn from_iter(iter: impl Iterator<Item = models::FileInformation>) -> Self {
-        let mut ret = Self::new();
-        ret.accumulate_from_iter(iter);
-        ret
-    }
 
-    fn accumulate_from_iter(&mut self, iter: impl Iterator<Item = models::FileInformation>) {
-        for item in iter {
-            self.accumulate(&item);
-        }
-    }
     /// Add a single element of SPDX FileInformation to the tree, after cleanup and processing.
     fn accumulate(&mut self, item: &models::FileInformation) {
         let license = item.license_information_in_file.clone();
         let copyright_text = cleanup_copyright_text(&item.copyright_text).join("\n");
-        let filename = item.file_name.strip_prefix_if_present("./");
-        let metadata = Metadata {
+        let metadata_id = self.find_or_insert_metadata(Metadata {
             copyright_text,
             license,
-        };
-        let metadata_id = self.find_or_insert_metadata(metadata);
-        let id = find_or_create_node(&mut self.tree_arena, self.root, &filename);
+        });
+        let filename = item.file_name.strip_prefix_if_present("./");
+        let id = find_or_create_node(&mut self.tree_arena, self.root, filename);
         let node = self.tree_arena.get_mut(id).unwrap();
         node.get_mut().metadata = Some(metadata_id);
     }
@@ -140,14 +132,14 @@ impl CopyrightDataTree {
     /// Search for the provided metadata, returning its ID if it is already known.
     /// If it is not known, add it to our collection, assign an ID, and return that ID.
     fn find_or_insert_metadata(&mut self, metadata: Metadata) -> MetadataId {
-        match self.metadata_map.get(&metadata) {
-            Some(id) => *id,
-            None => {
+        self.metadata_map
+            .get(&metadata)
+            .copied()
+            .unwrap_or_else(|| {
                 let id = self.metadata.push_and_get_key(metadata.clone());
                 self.metadata_map.insert(metadata, id);
                 id
-            }
-        }
+            })
     }
     fn set_metadata_id_for_node(&mut self, id: NodeId, metadata_id: MetadataId) {
         if let Some(node) = self.tree_arena.get_mut(id) {
@@ -170,7 +162,7 @@ impl CopyrightDataTree {
                 return Some(metadata_id);
             }
         }
-        return None;
+        None
     }
 
     fn is_directory(&self, id: NodeId) -> bool {
@@ -191,7 +183,7 @@ impl CopyrightDataTree {
                 .join("/");
             return Some(path);
         }
-        return None;
+        None
     }
 
     fn get_pattern(&self, id: NodeId) -> Option<String> {
@@ -221,6 +213,14 @@ impl CopyrightDataTree {
                 self.set_metadata_id_for_node(id, child_metadata_id);
             }
         }
+    }
+}
+
+impl FromIterator<models::FileInformation> for CopyrightDataTree {
+    fn from_iter<T: IntoIterator<Item = models::FileInformation>>(iter: T) -> Self {
+        let mut ret = Self::new();
+        ret.extend(iter);
+        ret
     }
 }
 
@@ -257,7 +257,7 @@ impl Iterator for NodeIdsWithMetadata<'_> {
 
 pub fn make_paragraphs(cdt: CopyrightDataTree) -> impl Iterator<Item = FilesParagraph> {
     let mut paras = vec![];
-    let grouped = NodeIdsWithMetadata::new(&cdt).group_by(|id| cdt.get_metadata_id(*id));
+    let grouped = NodeIdsWithMetadata::new(&cdt).group_by(|&id| cdt.get_metadata_id(id));
     for (key, grouped_ids) in &grouped {
         let metadata_id = key.unwrap();
         if let Some(metadata) = cdt.metadata.get(metadata_id) {

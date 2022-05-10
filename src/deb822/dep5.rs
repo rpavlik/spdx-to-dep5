@@ -42,7 +42,9 @@ impl Default for HeaderParagraph {
 }
 
 impl Paragraph for HeaderParagraph {
-    fn try_to_string(&self) -> Result<Option<String>, crate::deb822::control_file::ControlFileError> {
+    fn try_to_string(
+        &self,
+    ) -> Result<Option<String>, crate::deb822::control_file::ControlFileError> {
         Ok(Some(
             ParagraphAccumulator::default()
                 .write("Format", &self.format)?
@@ -65,7 +67,9 @@ pub struct FilesParagraph {
     pub comment: Option<MultilineField>,
 }
 impl Paragraph for FilesParagraph {
-    fn try_to_string(&self) -> Result<Option<String>, crate::deb822::control_file::ControlFileError> {
+    fn try_to_string(
+        &self,
+    ) -> Result<Option<String>, crate::deb822::control_file::ControlFileError> {
         Ok(Some(
             ParagraphAccumulator::default()
                 .write("Files", &self.files)?

@@ -39,7 +39,7 @@ fn main() -> Result<(), spdx_rs::error::SpdxError> {
         .filter(|f| extensions.iter().any(|ext| f.file_name.ends_with(ext)));
 
     // Turn into tree, and identify uniformly-licensed subtrees
-    let mut tree = CopyrightDataTree::from_iter(spdx_information.clone());
+    let mut tree: CopyrightDataTree = spdx_information.collect();
     tree.propagate_metadata();
 
     // Turn into debian copyriht file paragraphs

@@ -53,7 +53,7 @@ pub fn cleanup_copyright_text(text: &str) -> Vec<Cow<str>> {
                 .strip_suffix_if_present("\\n")
                 .strip_match_if_present(&RE)
         })
-        .filter_map(|str| if str.is_empty() { None } else { Some(str) })
+        .filter(|str| !str.is_empty())
         .sorted()
         .dedup()
         .collect()
