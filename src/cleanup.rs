@@ -36,17 +36,24 @@ impl StrExt for str {
 pub fn cleanup_copyright_text(text: &str) -> Vec<Cow<str>> {
     lazy_static! {
         // we don't want the license in the copyright text
-        static ref RE: Regex = Regex::new("SPDX-License-Identifier:.*$").unwrap();
+        static ref RE: Regex = Regex::new("(SPDX-License-Identifier:.*|(\\n|,|')+)$").unwrap();
+        // static ref NONSENSE_AT_THE_END = Regex::new("(")
     }
     text.split('\n')
         .map(|line| {
             line.trim()
                 .strip_prefix_if_present("SPDX-FileCopyrightText:")
                 .strip_prefix_if_present("Copyright")
+                .strip_prefix_if_present(":")
+                .strip_prefix_if_present("Copyright")
                 .strip_prefix_if_present("(c)")
                 .strip_prefix_if_present("(C)")
+                .strip_suffix_if_present("'")
+                .strip_suffix_if_present("\"")
+                .strip_suffix_if_present("\\n")
                 .strip_match_if_present(&RE)
         })
+        .filter_map(|str| if str.is_empty() { None } else { Some(str) })
         .sorted()
         .dedup()
         .collect()

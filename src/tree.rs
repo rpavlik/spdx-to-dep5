@@ -2,24 +2,28 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use std::{collections::HashMap, hash::Hash};
+use std::{cell::Ref, collections::HashMap, hash::Hash};
 
 use derive_more::{From, Into};
-use indextree::{Arena, Node, NodeId};
-use spdx_rs::models;
+use indextree::{Arena, Node, NodeEdge, NodeId, Traverse};
+use itertools::{Itertools, WhileSome};
+use spdx_rs::models::{self, SimpleExpression};
 use typed_index_collections::TiVec;
 
-use crate::cleanup::{cleanup_copyright_text, StrExt};
+use crate::{
+    cleanup::{cleanup_copyright_text, StrExt},
+    deb822::dep5::FilesParagraph,
+};
 
 /// Identifier per `Metadata`
-#[derive(From, Into, Debug, Clone, Copy)]
+#[derive(From, Into, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct MetadataId(usize);
 
 /// Combination of copyright text and license. We try to unify over these.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Metadata {
     pub copyright_text: String,
-    pub license: String,
+    pub license: Vec<SimpleExpression>,
 }
 
 /// A part of a path, which might have a Metadata (copyright + license) associated with it, by ID.
@@ -87,6 +91,22 @@ fn find_or_create_node(arena: &mut Arena<Element>, root: NodeId, path: &str) -> 
     // root
 }
 
+/// Keep advancing a traversal until it returns the "End" of the given `id` or runs out of elements.
+fn skip_until_end_of_id(traversal: &mut Traverse<Element>, id: NodeId) {
+    while let Some(edge) = traversal.next() {
+        if let NodeEdge::End(end_id) = edge {
+            if end_id == id {
+                return;
+            }
+        }
+    }
+}
+
+struct PathAndMetadata {
+    path: String,
+    metadata: MetadataId,
+}
+
 /// Stores license and copyright metadata and an associated tree data structure corresponding to the file system tree.
 pub struct CopyrightDataTree {
     tree_arena: Arena<Element>,
@@ -120,7 +140,7 @@ impl CopyrightDataTree {
     }
     /// Add a single element of SPDX FileInformation to the tree, after cleanup and processing.
     fn accumulate(&mut self, item: &models::FileInformation) {
-        let license = item.license_information_in_file.join(" OR ");
+        let license = item.license_information_in_file.clone();
         let copyright_text = cleanup_copyright_text(&item.copyright_text).join("\n");
         let filename = item.file_name.strip_prefix_if_present("./");
         let metadata = Metadata {
@@ -145,4 +165,273 @@ impl CopyrightDataTree {
             }
         }
     }
+    fn set_metadata_id_for_node(&mut self, id: NodeId, metadata_id: MetadataId) {
+        if let Some(node) = self.tree_arena.get_mut(id) {
+            node.get_mut().metadata = Some(metadata_id);
+        }
+    }
+    /// If all the direct children of `id` share the same Some(metadata_id), return it
+    fn get_common_child_metadata_id_if_any(&self, id: NodeId) -> Option<MetadataId> {
+        let all_child_metadata = id.children(&self.tree_arena).map(|child_id| {
+            self.tree_arena
+                .get(child_id)
+                .and_then(|node| node.get().metadata)
+        });
+        let mut unique_metadata = all_child_metadata.unique();
+        let first = unique_metadata.next();
+        if let Some(Some(metadata_id)) = first {
+            // OK we got one valid one.
+            if unique_metadata.count() == 0 {
+                // and none left after that: which means we have one unique one.
+                return Some(metadata_id);
+            }
+        }
+        return None;
+    }
+
+    fn is_directory(&self, id: NodeId) -> bool {
+        id.children(&self.tree_arena).count() > 0
+    }
+
+    fn get_path(&self, id: NodeId) -> Option<String> {
+        let mut ancestors = id.ancestors(&self.tree_arena).collect_vec();
+        ancestors.reverse();
+        let ancestor_nodes: Option<Vec<_>> = ancestors
+            .into_iter()
+            .map(|id| self.tree_arena.get(id))
+            .collect();
+        if let Some(ancestor_nodes) = ancestor_nodes {
+            let path = ancestor_nodes
+                .into_iter()
+                .map(|node| node.get().path_segment.as_str())
+                .join("/");
+            return Some(path);
+        }
+        return None;
+    }
+
+    fn get_pattern(&self, id: NodeId) -> Option<String> {
+        self.get_path(id).map(|path| {
+            if self.is_directory(id) {
+                path + "/*"
+            } else {
+                path
+            }
+        })
+    }
+    fn get_metadata_id(&self, id: NodeId) -> Option<MetadataId> {
+        self.tree_arena.get(id).and_then(|node| node.get().metadata)
+    }
+
+    fn try_making_stuff(&self) {
+        let mut iter = self.root.traverse(&self.tree_arena);
+        while let Some(item) = iter.next() {}
+    }
+    // fn get_paths_with_same_metadata(&self, id: NodeId) -> impl Iterator<Item = String> {
+    //     let mut files = vec![];
+    //     match self.get_metadata_id(id) {
+    //         Some(_) => todo!(),
+    //         None => todo!(),
+    //     }
+    //     //  self.get_metadata_id(id).map(|metadata_id| FilesParagraph{
+    //     //     files: todo!(),
+    //     //     copyright: todo!(),
+    //     //     license: todo!(),
+    //     //     comment: todo!(),
+    //     // })
+    //     //     Some(metadata_id) => todo!(),
+    //     //     None => None,
+    //     // }
+    //     // self.tree_arena.get(id).and_then(|node| {let data = node.get();
+    //     //     data.metadata .map(|metadata| (metadata, data.))
+    //     // }
+    //     // )
+    // }
+
+    /// Propagate metadata IDs upward when all children have the same metadata ID
+    pub fn propagate_metadata(&mut self) {
+        // Record the visit order so we can be done with the iterator and modify the tree
+        let mut visit_order = vec![];
+        for edge in self.root.traverse(&self.tree_arena) {
+            if let NodeEdge::End(id) = edge {
+                visit_order.push(id);
+            }
+        }
+        for id in visit_order {
+            if let Some(child_metadata_id) = self.get_common_child_metadata_id_if_any(id) {
+                self.set_metadata_id_for_node(id, child_metadata_id);
+            }
+            // let unique_metadata: Vec<Option<MetadataId>> = all_child_metadata.unique().collect();
+            // if unique_metadata.len() != 1 {
+            //     continue;
+            // }
+            // match unique_metadata.first() {
+            //     Some(Some(subtree_metadata_id)) => {
+            //         self.
+            //         // self.tree_arena.get_mut(id).and_then(|node| node.get_mut().metadata = Some(*subtree_metadata_id));//.and_then(|data| data);
+            //     // self.tree_arena.get_mut(id).and_then(|node| {node.get_mut().metadata = Some(*subtree_metadata_id);});},
+            //     }
+            //     _=> {}
+            // }
+            // let bla =unique_metadata.first().and_then(|item|);
+            // .and_then(|item|{
+            //     if let Some(subtree_id) = item {
+            //         // All children of this node have the same, present metadata ID.
+            //         self.tree_arena.get_mut(id).and_then(|node| node.get_mut().metadata = Some(subtree_id))
+            //         Some(su)
+            //         }
+            // });
+            // if let Some(first) = unique_metadata.first() {
+            //         if let Some(subtree_id) = first {
+            //         // All children of this node have the same, present metadata ID.
+            //         self.tree_arena.get_mut(id).and_then(|node| node.get_mut().metadata = Some(subtree_id))
+
+            //         }
+            //     }
+        }
+        // self.root.
+    }
+
+    // fn get_next_path_and_metadata(
+    //     &self,
+    //     traversal: &mut Traverse<Element>,
+    // ) -> Option<PathAndMetadata> {
+    //     while let Some(edge) = traversal.next() {
+    //         // Only starts are interesting
+    //         if let NodeEdge::Start(id) = edge {
+    //             // If we have our own metadata ID then we are the path
+    //             if let Some(metadata_id) = self.get_metadata_id(id) {
+    //                 if let Some(path) = self.get_pattern(id) {
+    //                     // skip all our descendants
+    //                     skip_until_end_of_id(traversal, id);
+    //                     return Some(PathAndMetadata {
+    //                         path: path,
+    //                         metadata: metadata_id,
+    //                     });
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     None
+    // }
+}
+
+// fn gather_data(cdt: &CopyrightDataTree) {
+//     while let Some(edge) = self.traversal.next() {
+//             if let NodeEdge::Start(id) =  edge {
+//                     // If we have our own metadata ID then we are the path
+//                     if let Some(metadata_id) = self.tree.get_metadata_id(id) {
+//                         if let Some(path) = self.tree.get_pattern(id) {
+//                             // take until we find our own end
+//                             self.skip_until_end_of_id(id);
+//                             return Some(PathAndMetadata {
+//                                 path: path,
+//                                 metadata: metadata_id,
+//                             });
+//                         }
+
+//                 }
+//                 NodeEdge::End(_) => (),
+//             }
+//         }
+// }
+
+struct NodeIdsWithMetadata<'a> {
+    cdt: &'a CopyrightDataTree,
+    traversal: Traverse<'a, Element>,
+}
+impl<'a> NodeIdsWithMetadata<'a> {
+    fn new(cdt: &'a CopyrightDataTree) -> NodeIdsWithMetadata<'a> {
+        NodeIdsWithMetadata {
+            cdt,
+            traversal: cdt.root.traverse(&cdt.tree_arena),
+        }
+    }
+}
+impl Iterator for NodeIdsWithMetadata<'_> {
+    type Item = NodeId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(edge) = self.traversal.next() {
+            // Only starts are interesting
+            if let NodeEdge::Start(id) = edge {
+                // If we have our own metadata ID then we are the path
+                if let Some(metadata_id) = self.cdt.get_metadata_id(id) {
+                    // skip all our descendants
+                    skip_until_end_of_id(&mut self.traversal, id);
+                    return Some(id);
+                }
+            }
+        }
+        None
+    }
+}
+struct PathAndMetadataTraverser<'a> {
+    cdt: &'a CopyrightDataTree,
+    traversal: Traverse<'a, Element>,
+}
+
+impl<'a> PathAndMetadataTraverser<'a> {
+    fn new(cdt: &'a CopyrightDataTree) -> PathAndMetadataTraverser<'a> {
+        PathAndMetadataTraverser {
+            cdt,
+            traversal: cdt.root.traverse(&cdt.tree_arena),
+        }
+    }
+}
+
+impl Iterator for PathAndMetadataTraverser<'_> {
+    type Item = PathAndMetadata;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(edge) = self.traversal.next() {
+            // Only starts are interesting
+            if let NodeEdge::Start(id) = edge {
+                // If we have our own metadata ID then we are the path
+                if let Some(metadata_id) = self.cdt.get_metadata_id(id) {
+                    if let Some(path) = self.cdt.get_pattern(id) {
+                        // skip all our descendants
+                        skip_until_end_of_id(&mut self.traversal, id);
+                        return Some(PathAndMetadata {
+                            path: path,
+                            metadata: metadata_id,
+                        });
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+pub fn make_paragraphs(cdt: CopyrightDataTree) -> impl Iterator<Item = FilesParagraph> {
+    // let grouped =
+    //     PathAndMetadataTraverser::new(&cdt).group_by(|pathAndMetadata| pathAndMetadata.metadata);
+
+    let mut paras = vec![];
+    let grouped = NodeIdsWithMetadata::new(&cdt).group_by(|id| cdt.get_metadata_id(*id));
+    for (key, grouped_ids) in &grouped {
+        let metadata_id = key.unwrap();
+        if let Some(metadata) = cdt.metadata.get(metadata_id) {
+            let files = grouped_ids
+                .filter_map(|id| cdt.get_pattern(id))
+                .sorted_unstable()
+                .collect_vec()
+                .join("\n");
+            let license_string = metadata
+                .license
+                .iter()
+                .map(|expr| expr.to_string())
+                .join(" OR ");
+            paras.push(FilesParagraph {
+                files: files.into(),
+                copyright: metadata.copyright_text.clone().into(),
+                license: license_string.into(),
+                comment: None,
+            })
+        }
+        // copyright: cdt.metadata_map.get(k)
+        // paras.push(FilesParagraph{files, })
+    }
+    paras.into_iter()
 }
