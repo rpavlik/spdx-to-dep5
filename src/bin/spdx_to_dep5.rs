@@ -22,6 +22,7 @@ use std::{
 struct DirectoryAndFullPathBufMap(HashMap<Option<PathBuf>, HashSet<PathBuf>>);
 
 fn main() -> Result<(), spdx_rs::error::SpdxError> {
+    env_logger::init();
     // load SPDX file
     let filename = env::args().nth(1);
     let filename = filename.unwrap_or_else(|| "summary.spdx".to_string());
