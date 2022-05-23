@@ -43,7 +43,7 @@ fn main() -> Result<(), spdx_rs::error::SpdxError> {
     let mut tree: CopyrightDataTree = spdx_information.collect();
     tree.propagate_metadata();
 
-    // Turn into debian copyriht file paragraphs
+    // Turn into debian copyright file paragraphs
     let paragraphs: Vec<String> = HeaderParagraph::default()
         .try_to_string_ok()
         .into_iter()
