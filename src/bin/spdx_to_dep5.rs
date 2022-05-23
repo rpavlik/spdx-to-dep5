@@ -32,12 +32,14 @@ fn main() -> Result<(), spdx_rs::error::SpdxError> {
     let doc = spdx_from_tag_value(&file)?;
 
     // Filter SPDX
-    let extensions = [".c", ".cpp", ".h", ".hpp", ".py", ".md"];
     let spdx_information = doc
         .file_information
         .into_iter()
-        .filter(|f| f.copyright_text != "NONE")
-        .filter(|f| extensions.iter().any(|ext| f.file_name.ends_with(ext)));
+        .filter(|f| f.copyright_text != "NONE");
+    // Limit which file extensions
+    // let extensions = [".c", ".cpp", ".h", ".hpp", ".py", ".md"];
+    // let spdx_information =
+    //     spdx_information.filter(|f| extensions.iter().any(|ext| f.file_name.ends_with(ext)));
 
     // Turn into tree, and identify uniformly-licensed subtrees
     let mut tree: CopyrightDataTree = spdx_information.collect();
