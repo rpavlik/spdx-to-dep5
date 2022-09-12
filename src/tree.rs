@@ -255,6 +255,11 @@ impl Iterator for NodeIdsWithMetadata<'_> {
     }
 }
 
+fn process_file_pattern(path: &str) -> String {
+    path.strip_prefix_if_present("./")
+        .replace(" ", "?") // apparently space is a reserved separator
+}
+
 pub fn make_paragraphs(cdt: CopyrightDataTree) -> impl Iterator<Item = FilesParagraph> {
     let mut paras = vec![];
     let grouped = NodeIdsWithMetadata::new(&cdt).group_by(|&id| cdt.get_metadata_id(id));
@@ -264,6 +269,7 @@ pub fn make_paragraphs(cdt: CopyrightDataTree) -> impl Iterator<Item = FilesPara
             let files = grouped_ids
                 .filter_map(|id| cdt.get_pattern(id))
                 .sorted_unstable()
+                .map(|path| process_file_pattern(&path))
                 .collect_vec()
                 .join("\n");
             let license_string = metadata
