@@ -256,8 +256,7 @@ impl Iterator for NodeIdsWithMetadata<'_> {
 }
 
 fn process_file_pattern(path: &str) -> String {
-    path.strip_prefix_if_present("./")
-        .replace(" ", "?") // apparently space is a reserved separator
+    path.strip_prefix_if_present("./").replace(' ', "?") // apparently space is a reserved separator
 }
 
 pub fn make_paragraphs(cdt: CopyrightDataTree) -> impl Iterator<Item = FilesParagraph> {
