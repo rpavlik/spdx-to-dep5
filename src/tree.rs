@@ -78,7 +78,7 @@ fn find_or_create_node(arena: &mut Arena<Element>, root: NodeId, path: &str) -> 
 
 /// Keep advancing a traversal until it returns the "End" of the given `id` or runs out of elements.
 fn skip_until_end_of_id(traversal: &mut Traverse<Element>, id: NodeId) {
-    while let Some(edge) = traversal.next() {
+    for edge in traversal.by_ref() {
         if let NodeEdge::End(end_id) = edge {
             if end_id == id {
                 return;
