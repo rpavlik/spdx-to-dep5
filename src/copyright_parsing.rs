@@ -4,16 +4,20 @@
 
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_till, take_until},
-    character::complete::{line_ending, multispace0, not_line_ending, one_of, space0, space1},
-    combinator::{consumed, eof, map, map_res, recognize, rest, verify},
-    multi::{count, many1, separated_list1},
+    bytes::complete::tag,
+    character::complete::{digit1, multispace0, not_line_ending, one_of, space0, space1},
+    combinator::{eof, map, map_res, not, peek, recognize, rest, verify},
+    multi::{count, separated_list1},
     sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
-    Finish, IResult,
+    IResult,
 };
 
-use crate::copyright::{Copyright, DecomposedCopyright, Year, YearRange, YearSpec};
-fn year(input: &str) -> IResult<&str, Year> {
+use crate::{
+    copyright::{Copyright, DecomposedCopyright},
+    years::{Year, YearRange, YearSpec},
+};
+
+fn four_digit_year(input: &str) -> IResult<&str, Year> {
     map_res(
         recognize(pair(
             alt((tag("19"), tag("20"))),
@@ -21,6 +25,24 @@ fn year(input: &str) -> IResult<&str, Year> {
         )),
         |out: &str| u16::from_str_radix(&out, 10).map(Year),
     )(input)
+}
+
+fn two_digit_to_four_digit_year(num: u16) -> Year {
+    if num < 60 {
+        Year(1900 + num)
+    } else {
+        Year(2000 + num)
+    }
+}
+
+fn two_digit_year(input: &str) -> IResult<&str, Year> {
+    map_res(
+        recognize(pair(count(one_of("0123456789"), 2), peek(not(digit1)))),
+        |out: &str| u16::from_str_radix(&out, 10).map(two_digit_to_four_digit_year),
+    )(input)
+}
+fn year(input: &str) -> IResult<&str, Year> {
+    alt((four_digit_year, two_digit_year))(input)
 }
 
 fn year_range(input: &str) -> IResult<&str, YearRange> {
@@ -87,7 +109,7 @@ pub(crate) fn copyright_lines(input: &str) -> IResult<&str, Copyright> {
 #[cfg(test)]
 mod tests {
     use super::{year, year_range, year_spec, year_spec_vec};
-    use crate::copyright::{Year, YearRange, YearSpec};
+    use crate::years::{Year, YearRange, YearSpec};
     use nom::{combinator::eof, sequence::terminated, Finish, IResult};
 
     #[test]
