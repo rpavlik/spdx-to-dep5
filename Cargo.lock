@@ -442,6 +442,7 @@ dependencies = [
  "itertools",
  "lazy_static",
  "log",
+ "nom",
  "regex",
  "spdx-rs",
  "thiserror",
