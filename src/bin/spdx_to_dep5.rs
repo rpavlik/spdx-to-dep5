@@ -35,6 +35,10 @@ struct Args {
     /// The only extensions to include. Conflicts with --exclude.
     #[clap(short = 'i', long)]
     include: Vec<String>,
+
+    /// Omit files with no copyright data
+    #[clap(short, long)]
+    omit_no_copyright: bool,
 }
 
 /// Filter files according to arguments (at most one of `exclude` and `include` may be non-empty)
@@ -71,14 +75,30 @@ fn main() -> Result<(), spdx_rs::error::SpdxError> {
     let file = std::fs::read_to_string(filename)?;
     let doc = spdx_from_tag_value(&file)?;
 
-    // Filter SPDX
-    let spdx_information = doc
-        .file_information
-        .into_iter()
-        .filter(|f| f.copyright_text != "NONE");
+    // Omit or normalize the "NONE" text that REUSE tends to put into SPDX files.
+    let spdx_information: Vec<_> = if args.omit_no_copyright {
+        doc.file_information
+            .into_iter()
+            .filter(|f| f.copyright_text != "NONE")
+            .collect()
+    } else {
+        doc.file_information
+            .into_iter()
+            .map(|f| {
+                if f.copyright_text == "NONE" {
+                    let mut f = f;
+                    f.copyright_text = "NOASSERTION".to_string();
+                    f
+                } else {
+                    f
+                }
+            })
+            .collect()
+    };
 
     // Turn into tree, and identify uniformly-licensed subtrees
-    let mut tree: CopyrightDataTree = filter_files(spdx_information, args.exclude, args.include);
+    let mut tree: CopyrightDataTree =
+        filter_files(spdx_information.into_iter(), args.exclude, args.include);
     tree.propagate_metadata();
 
     // Turn into debian copyright file paragraphs
