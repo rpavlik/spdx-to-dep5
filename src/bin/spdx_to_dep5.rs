@@ -1,8 +1,7 @@
 // Copyright 2021-2022, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
-
-use clap::{crate_authors, crate_description, Parser};
+use clap::{crate_authors, crate_description, ArgGroup, Parser};
 use itertools::Itertools;
 use spdx_rs::{models::FileInformation, parsers::spdx_from_tag_value};
 use spdx_to_dep5::{
@@ -22,22 +21,26 @@ use std::{
 struct DirectoryAndFullPathBufMap(HashMap<Option<PathBuf>, HashSet<PathBuf>>);
 
 #[derive(Parser, Debug)]
-#[clap(author=crate_authors!(), version, about=crate_description!())]
+#[command(author=crate_authors!(), version, about=crate_description!())]
+#[command(group(
+            ArgGroup::new("filter")
+                .args(["include", "exclude"]),
+        ))]
 struct Args {
     /// Input file
-    #[clap(value_parser)]
-    input: Option<String>,
+    #[arg(default_value = "summary.spdx")]
+    input: String,
 
     /// Extensions to exclude
-    #[clap(short = 'x', long)]
+    #[arg(short = 'x', long)]
     exclude: Vec<String>,
 
     /// The only extensions to include. Conflicts with --exclude.
-    #[clap(short = 'i', long)]
+    #[arg(short, long)]
     include: Vec<String>,
 
     /// Omit files with no copyright data
-    #[clap(short, long)]
+    #[arg(short, long)]
     omit_no_copyright: bool,
 }
 
@@ -63,13 +66,8 @@ fn main() -> Result<(), spdx_rs::error::SpdxError> {
     env_logger::init();
     let args = Args::parse();
 
-    if !args.exclude.is_empty() && !args.include.is_empty() {
-        println!("Cannot specify both --include and --exclude!");
-        panic!("Cannot specify both --include and --exclude");
-    }
-
     // load SPDX file
-    let filename = args.input.unwrap_or_else(|| "summary.spdx".to_string());
+    let filename = args.input;
     eprintln!("Opening {}", filename);
 
     let file = std::fs::read_to_string(filename)?;
