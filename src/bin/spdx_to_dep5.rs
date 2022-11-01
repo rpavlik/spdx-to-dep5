@@ -108,3 +108,10 @@ fn main() -> Result<(), spdx_rs::error::SpdxError> {
     println!("{}", paragraphs.join("\n\n"));
     Ok(())
 }
+
+
+#[test]
+fn verify_cli() {
+    use clap::CommandFactory;
+    Args::command().debug_assert()
+}
