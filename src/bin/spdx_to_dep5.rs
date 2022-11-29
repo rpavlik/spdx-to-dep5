@@ -63,7 +63,6 @@ fn filter_files(
 }
 
 fn main() -> Result<(), spdx_rs::error::SpdxError> {
-    env_logger::init();
     let args = Args::parse();
 
     // load SPDX file
