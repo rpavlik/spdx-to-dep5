@@ -41,6 +41,7 @@ fn two_digit_year(input: &str) -> IResult<&str, Year> {
         |out: &str| u16::from_str_radix(&out, 10).map(two_digit_to_four_digit_year),
     )(input)
 }
+
 fn year(input: &str) -> IResult<&str, Year> {
     alt((four_digit_year, two_digit_year))(input)
 }
@@ -109,18 +110,49 @@ pub(crate) fn copyright_lines(input: &str) -> IResult<&str, Copyright> {
 #[cfg(test)]
 mod tests {
     use super::{year, year_range, year_spec, year_spec_vec};
-    use crate::years::{Year, YearRange, YearSpec};
+    use crate::{
+        copyright_parsing::{four_digit_year, two_digit_year},
+        years::{Year, YearRange, YearSpec},
+    };
     use nom::{combinator::eof, sequence::terminated, Finish, IResult};
+
+    #[test]
+    fn parse_four_digit_year() {
+        // assert_finished_and_eq!(year("1995"))
+        assert!(four_digit_year("202").is_err());
+        assert!(four_digit_year("20").is_err());
+        assert!(four_digit_year("199").is_err());
+        assert!(four_digit_year("19").is_err());
+
+        assert_eq!(four_digit_year("2022").finish().unwrap(), ("", Year(2022)));
+        assert_eq!(four_digit_year("2022").finish().unwrap(), ("", Year(2022)));
+        assert_eq!(four_digit_year("1995").finish().unwrap(), ("", Year(1995)));
+        assert!(terminated(four_digit_year, eof)("20222").finish().is_err());
+    }
+
+    #[test]
+    fn parse_two_digityear() {
+        assert!(two_digit_year("202").is_err());
+        assert!(two_digit_year("2020").is_err());
+        assert!(two_digit_year("199").is_err());
+        assert!(two_digit_year("1995").is_err());
+
+        assert_eq!(two_digit_year("20").finish().unwrap(), ("", Year(2020)));
+        assert_eq!(two_digit_year("19").finish().unwrap(), ("", Year(2019)));
+        assert_eq!(two_digit_year("85").finish().unwrap(), ("", Year(1985)));
+    }
 
     #[test]
     fn parse_year() {
         // assert_finished_and_eq!(year("1995"))
-        assert!(year("20").is_err());
         assert!(year("202").is_err());
-        assert!(year("19").is_err());
+        assert!(four_digit_year("20").is_err());
         assert!(year("199").is_err());
+        assert!(four_digit_year("19").is_err());
 
+        assert_eq!(year("20").finish().unwrap(), ("", Year(2020)));
         assert_eq!(year("2022").finish().unwrap(), ("", Year(2022)));
+        assert_eq!(year("19").finish().unwrap(), ("", Year(2019)));
         assert_eq!(year("2022").finish().unwrap(), ("", Year(2022)));
         assert_eq!(year("1995").finish().unwrap(), ("", Year(1995)));
         assert!(terminated(year, eof)("20222").finish().is_err());
