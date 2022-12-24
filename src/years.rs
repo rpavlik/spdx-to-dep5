@@ -2,6 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use std::{fmt::Display, iter::once};
+
+use itertools::Itertools;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct Year(pub u16);
 
@@ -32,6 +36,22 @@ impl YearRange {
             Self { begin, end }
         }
     }
+
+    fn can_add(&self, new_year: &Year) -> bool {
+        // within the range
+        (new_year <= &self.end && new_year >= &self.begin)
+            || (*new_year == Year(self.end.0 + 1))// appends one year to the end
+            || (*new_year == Year(self.begin.0 - 1)) // appends one year to the beginning
+    }
+
+    fn can_merge(&self, new_range: &YearRange) -> bool {
+        self.can_add(&new_range.begin) || self.can_add(&new_range.end)
+    }
+
+    fn merge_with(self, other: YearRange) -> Self {
+        Self::new(self.begin.min(other.begin), self.end.max(other.end))
+    }
+
     fn partial_order_single_year(&self, single: &Year) -> Option<std::cmp::Ordering> {
         if self.begin == *single {
             // in normal partial order land we'll call this undefined
@@ -45,13 +65,6 @@ impl YearRange {
         // make the range "smaller" so it sorts first
         self.partial_order_single_year(single)
             .unwrap_or(std::cmp::Ordering::Greater)
-    }
-
-    fn can_add(&self, new_year: &Year) -> bool {
-        // within the range
-        (new_year <= &self.end && new_year >= &self.begin)
-            || (*new_year == Year(self.end.0 + 1))// appends one year to the end
-            || (*new_year == Year(self.begin.0 - 1)) // appends one year to the beginning
     }
 
     fn try_add(&self, new_year: Year) -> Option<Self> {
@@ -84,6 +97,26 @@ impl From<YearSpec> for YearRange {
         match ys {
             YearSpec::SingleYear(y) => y.into(),
             YearSpec::ClosedRange(range) => range,
+        }
+    }
+}
+
+fn coalesce_years(years: impl IntoIterator<Item = YearRange>) -> impl Iterator<Item = YearRange> {
+    years.into_iter().coalesce(|a, b| {
+        if a.can_merge(&b) {
+            Ok(a.merge_with(b))
+        } else {
+            Err((a, b))
+        }
+    })
+}
+
+impl Display for YearRange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.begin == self.end {
+            write!(f, "{}", self.begin.0)
+        } else {
+            write!(f, "{}-{}", self.begin.0, self.end.0)
         }
     }
 }
