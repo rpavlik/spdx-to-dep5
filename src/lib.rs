@@ -8,3 +8,4 @@ mod copyright_parsing;
 pub mod deb822;
 pub mod tree;
 mod years;
+mod raw_year;
