@@ -167,10 +167,12 @@ mod tests {
             .finish()
             .is_err());
         assert_eq!(
-            all_consuming(year_spec_vec(opt().allow_assuming_y2k_span(true)))("1995-20")
-                .finish()
-                .unwrap()
-                .1,
+            all_consuming(year_spec_vec(
+                opt().allow_mixed_size_implied_century_rollover(true)
+            ))("1995-20")
+            .finish()
+            .unwrap()
+            .1,
             vec![YearSpec::range(Year(1995), Year(2020))]
         );
 

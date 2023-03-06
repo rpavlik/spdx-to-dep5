@@ -450,7 +450,8 @@ impl ConfigurableRawYearRange for (YearExpr, YearExpr) {
 mod tests {
 
     use crate::raw_year::{
-        traits::{IsProper, TryIsProper},
+        options::YearRangeNormalization,
+        traits::{ConfigurableRawYearRange, IsProper, TryIsProper},
         types::{FourDigitYear, TwoDigitYear},
     };
 
@@ -614,5 +615,15 @@ mod tests {
             (FourDigitYear(1959), FourDigitYear(2039))
         );
         assert_eq!((y59, y59).to_four_digit_range(), (y2059, y2059));
+
+        assert_eq!(
+            (FourDigitYear::new(1995), TwoDigitYear(20)).try_to_four_digit_range(
+                YearRangeNormalization {
+                    allow_mixed_size_implied_century_rollover: true,
+                    ..Default::default()
+                }
+            ),
+            Some((FourDigitYear(1995), FourDigitYear(2020)))
+        );
     }
 }
