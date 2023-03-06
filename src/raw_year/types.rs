@@ -2,21 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::years::Year;
-
 use super::{
-    traits::{
-        ConfigurableRawYearRange, IsProper, IsSingleYear, SetSingleYearNormalizationOptions,
-        SingleYearNormalizationOptions, TryIsProper, YearRangeNormalizationOptions,
-    },
+    traits::{ConfigurableRawYearRange, IsProper, IsSingleYear, YearRangeNormalizationOptions},
     util, RawYear, RawYearRange,
 };
-
-// impl<T: IsProper> TryIsProper for T {
-//     fn try_is_proper(&self) -> Option<bool> {
-//         Some(self.is_proper())
-//     }
-// }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub(crate) enum YearExpr {
@@ -76,9 +65,9 @@ impl RawYear for TwoDigitYear {
     }
 }
 
-impl Into<YearExpr> for TwoDigitYear {
-    fn into(self) -> YearExpr {
-        self.to_year_expr()
+impl From<TwoDigitYear> for YearExpr {
+    fn from(value: TwoDigitYear) -> Self {
+        value.to_year_expr()
     }
 }
 
@@ -128,9 +117,9 @@ impl RawYear for FourDigitYear {
     }
 }
 
-impl Into<YearExpr> for FourDigitYear {
-    fn into(self) -> YearExpr {
-        self.to_year_expr()
+impl From<FourDigitYear> for YearExpr {
+    fn from(value: FourDigitYear) -> Self {
+        value.to_year_expr()
     }
 }
 
@@ -434,17 +423,6 @@ impl ConfigurableRawYearRange for (YearExpr, YearExpr) {
         }
     }
 }
-
-// impl TryIsProper for (YearExpr, YearExpr) {
-//     fn try_is_proper(&self) -> Option<bool> {
-//         match (self.0, self.1) {
-//             (YearExpr::TwoDigit(b), YearExpr::TwoDigit(e)) => Some((b, e).is_proper()),
-//             (YearExpr::TwoDigit(b), YearExpr::FourDigit(e)) => None,
-//             (YearExpr::FourDigit(b), YearExpr::TwoDigit(e)) => None,
-//             (YearExpr::FourDigit(b), YearExpr::FourDigit(e)) => Some((b, e).is_proper()),
-//         }
-//     }
-// }
 
 #[cfg(test)]
 mod tests {

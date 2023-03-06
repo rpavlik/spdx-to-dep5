@@ -7,7 +7,7 @@ use super::traits::{
     SingleYearNormalizationOptions, YearRangeNormalizationOptions,
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct YearRangeNormalization {
     /// Should allow the century to be guessed entirely when there is no four-digit year
     /// suitably close to imply a century?
@@ -21,15 +21,6 @@ pub(crate) struct YearRangeNormalization {
     pub(crate) allow_mixed_size_implied_century_rollover: bool,
 }
 
-impl Default for YearRangeNormalization {
-    fn default() -> Self {
-        Self {
-            allow_century_guess: false,
-            allow_assuming_y2k_span: false,
-            allow_mixed_size_implied_century_rollover: false,
-        }
-    }
-}
 impl YearRangeNormalization {
     pub(crate) fn new() -> Self {
         Default::default()

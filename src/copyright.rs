@@ -15,6 +15,7 @@ pub(crate) struct DecomposedCopyright {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Copyright {
     Decomposable(DecomposedCopyright),
+    MultilineDecomposable(Vec<DecomposedCopyright>),
     Complex(String),
 }
 

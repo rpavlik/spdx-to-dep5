@@ -16,9 +16,8 @@ use crate::{
     copyright::{Copyright, DecomposedCopyright},
     raw_year::{
         self,
-        options::YearRangeNormalization,
         traits::{ConfigurableRawYearRange, YearRangeNormalizationOptions},
-        RawYear, RawYearRange,
+        RawYear,
     },
     years::{Year, YearRange, YearSpec},
 };

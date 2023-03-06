@@ -27,14 +27,8 @@ pub(crate) enum YearSpec {
 
 impl YearRange {
     pub(crate) fn new(begin: Year, end: Year) -> Self {
-        if end < begin {
-            Self {
-                begin: end,
-                end: begin,
-            }
-        } else {
-            Self { begin, end }
-        }
+        assert!(begin <= end);
+        Self { begin, end }
     }
 
     fn can_add(&self, new_year: &Year) -> bool {

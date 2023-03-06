@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use clap::Parser;
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{digit1, multispace0, not_line_ending, one_of, space0, space1},
-    combinator::{eof, map, map_res, not, peek, recognize, rest, verify},
-    multi::{count, separated_list1},
-    sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
+    character::complete::{one_of, space0},
+    combinator::{map, map_res, recognize},
+    multi::count,
+    sequence::{pair, preceded, separated_pair, tuple},
     IResult,
 };
 
@@ -28,13 +27,13 @@ fn century(input: &str) -> IResult<&str, &str> {
 
 fn four_digit_year(input: &str) -> IResult<&str, FourDigitYear> {
     map_res(recognize(pair(century, count(digit, 2))), |out: &str| {
-        (&out).parse::<u16>().map(FourDigitYear::new)
+        out.parse::<u16>().map(FourDigitYear::new)
     })(input)
 }
 
 fn two_digit_year(input: &str) -> IResult<&str, TwoDigitYear> {
     map_res(recognize(count(digit, 2)), |out: &str| {
-        (&out).parse::<u16>().map(TwoDigitYear::new)
+        out.parse::<u16>().map(TwoDigitYear::new)
     })(input)
 }
 

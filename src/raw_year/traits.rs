@@ -124,8 +124,8 @@ impl<T: RawYear, U: RawYear> TryIsProper for (T, U) {
 
         match (b, e) {
             (YearExpr::TwoDigit(b), YearExpr::TwoDigit(e)) => Some((b, e).is_proper()),
-            (YearExpr::TwoDigit(b), YearExpr::FourDigit(e)) => None,
-            (YearExpr::FourDigit(b), YearExpr::TwoDigit(e)) => None,
+            (YearExpr::TwoDigit(_), YearExpr::FourDigit(_)) => None,
+            (YearExpr::FourDigit(_), YearExpr::TwoDigit(_)) => None,
             (YearExpr::FourDigit(b), YearExpr::FourDigit(e)) => Some((b, e).is_proper()),
         }
     }
