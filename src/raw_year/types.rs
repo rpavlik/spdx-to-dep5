@@ -30,6 +30,10 @@ pub(crate) trait RawYear {
     #[must_use]
     fn two_digit(&self) -> TwoDigitYear;
 
+    /// Get the year as a four-digit year, if it actually is one
+    #[must_use]
+    fn try_as_four_digit(&self) -> Option<FourDigitYear>;
+
     /// Using a simple heuristic if needed, get the year as a four-digit year.
     #[must_use]
     fn to_four_digit(&self) -> FourDigitYear;
@@ -55,7 +59,20 @@ pub(crate) trait RawYearRange {
     /// making our best guess if required.
     fn to_four_digit_range(&self) -> (FourDigitYear, FourDigitYear);
 
+    /// Try converting this range to a proper range of 4 digit years, without making any dubious guesses.
+    /// `allow_century_guess` determines whether we are allowed to completely make up the first two digits
+    /// based on a two digit year when we have no four digit years in the range for context.
+    fn try_to_four_digit_range(
+        &self,
+        allow_century_guess: bool,
+    ) -> Option<(FourDigitYear, FourDigitYear)>;
+
     /// Is this a proper year range? (the end year equal to or later than the beginning?)
+    ///
+    /// For ranges that include both four-digit and two-digit years, they are all converted to
+    /// two-digit years before comparison.
+    /// Note that some ranges that return false here may return true after calling `to_four_digit_range()`
+    /// since that routine will do the century-spanning required to make the range proper, if any years are two-digit.
     fn is_proper(&self) -> bool;
 }
 
@@ -80,6 +97,10 @@ impl RawYear for TwoDigitYear {
         *self
     }
 
+    fn try_as_four_digit(&self) -> Option<FourDigitYear> {
+        None
+    }
+
     fn to_four_digit(&self) -> FourDigitYear {
         FourDigitYear(util::guess_four_digit_from_two_digit(self.0))
     }
@@ -91,7 +112,6 @@ impl RawYear for TwoDigitYear {
     fn to_year_expr(&self) -> YearExpr {
         YearExpr::TwoDigit(*self)
     }
-
     fn into_inner(self) -> u16 {
         self.0
     }
@@ -123,6 +143,10 @@ impl RawYear for FourDigitYear {
         TwoDigitYear(util::get_two_digit_year(self.0))
     }
 
+    fn try_as_four_digit(&self) -> Option<FourDigitYear> {
+        Some(*self)
+    }
+
     fn to_four_digit(&self) -> FourDigitYear {
         *self
     }
@@ -134,7 +158,6 @@ impl RawYear for FourDigitYear {
     fn to_year_expr(&self) -> YearExpr {
         YearExpr::FourDigit(*self)
     }
-
     fn into_inner(self) -> u16 {
         self.0
     }
@@ -152,6 +175,13 @@ impl RawYear for YearExpr {
         match self {
             YearExpr::TwoDigit(y) => y.two_digit(),
             YearExpr::FourDigit(y) => y.two_digit(),
+        }
+    }
+
+    fn try_as_four_digit(&self) -> Option<FourDigitYear> {
+        match self {
+            YearExpr::TwoDigit(_) => None,
+            YearExpr::FourDigit(y) => Some(*y),
         }
     }
 
@@ -200,6 +230,14 @@ impl RawYearRange for (FourDigitYear, FourDigitYear) {
         *self
     }
 
+    fn try_to_four_digit_range(
+        &self,
+        _allow_century_guess: bool,
+    ) -> Option<(FourDigitYear, FourDigitYear)> {
+        // we are already cool
+        Some(*self)
+    }
+
     fn is_proper(&self) -> bool {
         self.0.into_inner() <= self.1.into_inner()
     }
@@ -218,7 +256,7 @@ impl RawYearRange for (TwoDigitYear, TwoDigitYear) {
     fn to_four_digit_range(&self) -> (FourDigitYear, FourDigitYear) {
         let b = self.0;
         let e = self.1;
-        if e.0 < b.0 {
+        if e < b {
             // range spans y2k
             (
                 b.to_four_digit_with_century_hint(20),
@@ -232,9 +270,27 @@ impl RawYearRange for (TwoDigitYear, TwoDigitYear) {
         }
     }
 
+    fn try_to_four_digit_range(
+        &self,
+        allow_century_guess: bool,
+    ) -> Option<(FourDigitYear, FourDigitYear)> {
+        let b = self.0;
+        let e = self.1;
+        if self.is_proper() && allow_century_guess {
+            // guess the first year's century, re-use it for the second year
+            let b = b.to_four_digit();
+            let e = e.to_four_digit_with_century_hint(b.century());
+            Some((b, e))
+        } else {
+            // range spans y2k: This is sketchy, don't make the guess we could make here.
+            // or, we were just told to not allow guessing the century
+            None
+        }
+    }
+
     fn is_proper(&self) -> bool {
         // we assume it always is proper...
-        true
+        self.0 <= self.1
     }
 }
 
@@ -251,7 +307,7 @@ impl RawYearRange for (FourDigitYear, TwoDigitYear) {
     fn to_four_digit_range(&self) -> (FourDigitYear, FourDigitYear) {
         let b = self.0;
         let e = self.1;
-        if e.two_digit().0 < b.two_digit().0 {
+        if e < b.two_digit() {
             // range spans turn of the century
             let century = b.century();
             let e = e.to_four_digit_with_century_hint(century + 1);
@@ -263,9 +319,28 @@ impl RawYearRange for (FourDigitYear, TwoDigitYear) {
         }
     }
 
+    fn try_to_four_digit_range(
+        &self,
+        _allow_century_guess: bool,
+    ) -> Option<(FourDigitYear, FourDigitYear)> {
+        if self.is_proper() {
+            // Propagate first year's century
+            let b = self.0;
+            let e = self.1;
+            let e = e.to_four_digit_with_century_hint(b.century());
+            Some((b, e))
+        } else {
+            // range spans turn of the century? This is sketchy, don't make the guess we could make here.
+            None
+        }
+    }
+
     fn is_proper(&self) -> bool {
-        // we assume it always is proper...
-        true
+        // Only proper if we can convert to 4 digit and have it be proper
+
+        let b = self.0;
+        let e = self.1;
+        (b.two_digit(), e).is_proper()
     }
 }
 
@@ -283,45 +358,39 @@ impl RawYearRange for (TwoDigitYear, FourDigitYear) {
     fn to_four_digit_range(&self) -> (FourDigitYear, FourDigitYear) {
         let b = self.0;
         let e = self.1;
-        if e.two_digit().0 < b.two_digit().0 {
+
+        if self.is_proper() {
+            // Propagate second year's century
+            let b = b.to_four_digit_with_century_hint(e.century());
+            (b, e)
+        } else {
             // range spans turn of the century
             let century = e.century();
             let b = b.to_four_digit_with_century_hint(century - 1);
             (b, e)
-        } else {
-            // Propagate second year's century
-            let b = b.to_four_digit_with_century_hint(e.century());
-            (b, e)
         }
     }
+
+    fn try_to_four_digit_range(
+        &self,
+        _allow_century_guess: bool,
+    ) -> Option<(FourDigitYear, FourDigitYear)> {
+        if self.is_proper() {
+            // Propagate second year's century
+            let b = self.0;
+            let e = self.1;
+            let b = b.to_four_digit_with_century_hint(e.century());
+            Some((b, e))
+        } else {
+            // range spans turn of the century, don't make the guess we could make here
+            None
+        }
+    }
+
     fn is_proper(&self) -> bool {
-        // we assume it always is proper...
-        true
+        (self.0, self.1.two_digit()).is_proper()
     }
 }
-
-// impl RawYearRange for (YearExpr, TwoDigitYear) {
-//     fn begin(&self) -> YearExpr {
-//         self.0
-//     }
-
-//     fn end(&self) -> YearExpr {
-//         self.1.to_year_expr()
-//     }
-
-//     fn to_four_digit_range(&self) -> (FourDigitYear, FourDigitYear) {
-//         match self.0 {
-//             YearExpr::TwoDigit(b) => (b, self.1).to_four_digit_range(),
-//             YearExpr::FourDigit(b) => (b, self.1).to_four_digit_range(),
-//         }
-//     }
-//     fn is_proper(&self) -> bool {
-//         match self.0 {
-//             YearExpr::TwoDigit(b) => (b, self.1).is_proper(),
-//             YearExpr::FourDigit(b) => (b, self.1).is_proper(),
-//         }
-//     }
-// }
 
 /// (2 or 4 digit, 2 or 4 digit) with years wrapped in enum
 /// Basically just have to unwrap the enum and dispatch again
@@ -348,6 +417,26 @@ impl RawYearRange for (YearExpr, YearExpr) {
             (YearExpr::TwoDigit(b), YearExpr::FourDigit(e)) => (b, e).is_proper(),
             (YearExpr::FourDigit(b), YearExpr::TwoDigit(e)) => (b, e).is_proper(),
             (YearExpr::FourDigit(b), YearExpr::FourDigit(e)) => (b, e).is_proper(),
+        }
+    }
+
+    fn try_to_four_digit_range(
+        &self,
+        allow_century_guess: bool,
+    ) -> Option<(FourDigitYear, FourDigitYear)> {
+        match (self.0, self.1) {
+            (YearExpr::TwoDigit(b), YearExpr::TwoDigit(e)) => {
+                (b, e).try_to_four_digit_range(allow_century_guess)
+            }
+            (YearExpr::TwoDigit(b), YearExpr::FourDigit(e)) => {
+                (b, e).try_to_four_digit_range(allow_century_guess)
+            }
+            (YearExpr::FourDigit(b), YearExpr::TwoDigit(e)) => {
+                (b, e).try_to_four_digit_range(allow_century_guess)
+            }
+            (YearExpr::FourDigit(b), YearExpr::FourDigit(e)) => {
+                (b, e).try_to_four_digit_range(allow_century_guess)
+            }
         }
     }
 }
@@ -493,9 +582,10 @@ mod tests {
 
         assert!(!(y2059, y1995).is_proper());
         assert!((y1995, y2059).is_proper());
-        assert!((y1995, y59).is_proper());
+        assert!(!(y1995, y59).is_proper());
+        assert!(!(y95, FourDigitYear(1959)).is_proper());
         assert!((y1995, y95).is_proper());
-        assert!((y95, y59).is_proper());
+        assert!(!(y95, y59).is_proper());
         assert!((y95, y95).is_proper());
         assert!((y59, y95).is_proper());
         assert!((y59, y59).is_proper());
