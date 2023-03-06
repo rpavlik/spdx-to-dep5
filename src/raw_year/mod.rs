@@ -12,3 +12,5 @@ mod util;
 pub(crate) const CENTURY_DURATION: u16 = 100;
 
 pub(crate) use traits::{RawYear, RawYearRange};
+
+pub use options::YearRangeNormalization;

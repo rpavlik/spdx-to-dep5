@@ -1,4 +1,4 @@
-// Copyright 2021-2022, Collabora, Ltd.
+// Copyright 2021-2023, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
@@ -7,28 +7,28 @@ use std::fmt::Display;
 use itertools::Itertools;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct Year(pub u16);
+pub struct Year(pub u16);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct YearRange {
-    begin: Year,
-    end: Year,
+impl Display for Year {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) enum YearSpec {
-    /// Just one year (2022)
-    SingleYear(Year),
-    /// Two years forming a range (2018-2022)
-    ClosedRange(YearRange),
-    // /// An open-ended year range (2018-)
-    // OpenRange(u16),
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct YearRange {
+    begin: Year,
+    end: Year,
 }
 
 impl YearRange {
     pub(crate) fn new(begin: Year, end: Year) -> Self {
         assert!(begin <= end);
         Self { begin, end }
+    }
+
+    fn is_single_year(&self) -> bool {
+        self.begin == self.end
     }
 
     fn can_add(&self, new_year: &Year) -> bool {
@@ -47,7 +47,9 @@ impl YearRange {
     }
 
     fn partial_order_single_year(&self, single: &Year) -> Option<std::cmp::Ordering> {
-        if self.begin == *single {
+        if self.is_single_year() {
+            self.begin.partial_cmp(single)
+        } else if self.begin == *single {
             // in normal partial order land we'll call this undefined
             None
         } else {
@@ -55,6 +57,7 @@ impl YearRange {
             Some(self.begin.cmp(single))
         }
     }
+
     fn order_single_year_for_merging(&self, single: &Year) -> std::cmp::Ordering {
         // make the range "smaller" so it sorts first
         self.partial_order_single_year(single)
@@ -95,6 +98,15 @@ impl From<YearSpec> for YearRange {
     }
 }
 
+impl Display for YearRange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.begin == self.end {
+            write!(f, "{}", self.begin.0)
+        } else {
+            write!(f, "{}-{}", self.begin.0, self.end.0)
+        }
+    }
+}
 fn coalesce_years(years: impl IntoIterator<Item = YearRange>) -> impl Iterator<Item = YearRange> {
     years.into_iter().coalesce(|a, b| {
         if a.can_merge(&b) {
@@ -105,29 +117,38 @@ fn coalesce_years(years: impl IntoIterator<Item = YearRange>) -> impl Iterator<I
     })
 }
 
-impl Display for YearRange {
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum YearSpec {
+    /// Just one year (2022)
+    SingleYear(Year),
+    /// Two years forming a range (2018-2022)
+    ClosedRange(YearRange),
+    // /// An open-ended year range (2018-)
+    // OpenRange(u16),
+}
+
+impl Display for YearSpec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.begin == self.end {
-            write!(f, "{}", self.begin.0)
-        } else {
-            write!(f, "{}-{}", self.begin.0, self.end.0)
+        match self {
+            YearSpec::SingleYear(y) => y.fmt(f),
+            YearSpec::ClosedRange(r) => r.fmt(f),
         }
     }
 }
 
 impl PartialOrd for YearSpec {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match self {
-            YearSpec::SingleYear(y) => match other {
-                YearSpec::SingleYear(other_y) => y.partial_cmp(other_y),
-                YearSpec::ClosedRange(range) => {
-                    range.partial_order_single_year(y).map(|ord| ord.reverse())
-                }
-            },
-            YearSpec::ClosedRange(range) => match other {
-                YearSpec::SingleYear(other_y) => range.partial_order_single_year(other_y),
-                YearSpec::ClosedRange(other_range) => range.partial_cmp(other_range),
-            },
+        match (self, other) {
+            (YearSpec::SingleYear(y), YearSpec::SingleYear(other_y)) => y.partial_cmp(other_y),
+            (YearSpec::SingleYear(y), YearSpec::ClosedRange(range)) => {
+                range.partial_order_single_year(y).map(|ord| ord.reverse())
+            }
+            (YearSpec::ClosedRange(range), YearSpec::SingleYear(y)) => {
+                range.partial_order_single_year(y)
+            }
+            (YearSpec::ClosedRange(range), YearSpec::ClosedRange(other_range)) => {
+                range.partial_cmp(other_range)
+            }
         }
     }
 }

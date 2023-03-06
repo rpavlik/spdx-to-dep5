@@ -2,25 +2,28 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use std::fmt::{Display, Write};
+
+use itertools::Itertools;
 use nom::Finish;
 
 use crate::{copyright_parsing, raw_year::traits::YearRangeNormalizationOptions, years::YearSpec};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) struct DecomposedCopyright {
+pub struct DecomposedCopyright {
     years: Vec<YearSpec>,
     holder: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) enum Copyright {
+pub enum Copyright {
     Decomposable(DecomposedCopyright),
     MultilineDecomposable(Vec<DecomposedCopyright>),
     Complex(String),
 }
 
 impl DecomposedCopyright {
-    pub(crate) fn new(years: &[YearSpec], holder: &str) -> Self {
+    pub fn new(years: &[YearSpec], holder: &str) -> Self {
         Self {
             years: years.into(),
             holder: holder.trim().to_string(),
@@ -29,12 +32,39 @@ impl DecomposedCopyright {
 }
 
 impl Copyright {
-    fn try_parse(
+    pub fn try_parse(
         options: impl YearRangeNormalizationOptions + Copy,
         statement: &str,
     ) -> Result<Self, nom::error::Error<&str>> {
         copyright_parsing::copyright_lines(options)(statement)
             .finish()
             .map(|(_leftover, parsed)| parsed)
+    }
+}
+
+impl Display for DecomposedCopyright {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}, {}",
+            self.years.iter().map(YearSpec::to_string).join(", "),
+            self.holder
+        )
+    }
+}
+
+impl Display for Copyright {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Copyright::Decomposable(c) => c.fmt(f),
+            Copyright::MultilineDecomposable(v) => {
+                write!(
+                    f,
+                    "{}",
+                    v.iter().map(DecomposedCopyright::to_string).join("\n")
+                )
+            }
+            Copyright::Complex(s) => write!(f, "{s}"),
+        }
     }
 }

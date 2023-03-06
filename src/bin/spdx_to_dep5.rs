@@ -42,6 +42,22 @@ struct Args {
     /// Omit files with no copyright data
     #[arg(short, long)]
     omit_no_copyright: bool,
+
+    /// Should allow the century to be guessed entirely when there is no four-digit year
+    /// suitably close to imply a century?
+    #[arg(long)]
+    allow_century_guess: bool,
+
+    /// If both years of a range are two-digit years, and the second is smaller than the first,
+    /// can we assume the years span Y2K? This is a reasonable assumption as long as you are working
+    /// with computer software in the 21st century.
+    #[arg(long)]
+    allow_assuming_y2k_span: bool,
+
+    /// Should we allow the century part of a year range's endpoint to be inferred
+    /// across a century boundary based on the other endpoint's known century.
+    #[arg(long)]
+    allow_mixed_size_implied_century_rollover: bool,
 }
 
 /// Filter files according to arguments (at most one of `exclude` and `include` may be non-empty)

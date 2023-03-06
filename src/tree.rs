@@ -12,7 +12,9 @@ use typed_index_collections::TiVec;
 
 use crate::{
     cleanup::{cleanup_copyright_text, StrExt},
+    copyright::Copyright,
     deb822::dep5::FilesParagraph,
+    raw_year::traits::YearRangeNormalizationOptions,
 };
 
 /// Identifier per `Metadata`
@@ -208,9 +210,9 @@ impl CopyrightDataTree {
                 visit_order.push(id);
             }
         }
-        for id in visit_order {
-            if let Some(child_metadata_id) = self.get_common_child_metadata_id_if_any(id) {
-                self.set_metadata_id_for_node(id, child_metadata_id);
+        for node in visit_order {
+            if let Some(child_metadata_id) = self.get_common_child_metadata_id_if_any(node) {
+                self.set_metadata_id_for_node(node, child_metadata_id);
             }
         }
     }
@@ -253,6 +255,28 @@ impl Iterator for NodeIdsWithMetadata<'_> {
         }
         None
     }
+}
+
+pub fn summarize_metadata(
+    tree: &CopyrightDataTree,
+    node: NodeId,
+    options: impl YearRangeNormalizationOptions + Copy,
+) {
+    let all_child_metadata = node.children(&tree.tree_arena).flat_map(|child_id| {
+        tree.tree_arena
+            .get(child_id)
+            .and_then(|node| node.get().metadata)
+    });
+    let unique_metadata = all_child_metadata.unique();
+    let _parsed: HashMap<MetadataId, Copyright> = unique_metadata
+        .flat_map(|metadata_id| tree.metadata.get(metadata_id).map(|d| (metadata_id, d)))
+        .map(|(metadata_id, metadata)| {
+            (
+                metadata_id,
+                Copyright::try_parse(options, &metadata.copyright_text).unwrap(),
+            )
+        })
+        .collect();
 }
 
 fn process_file_pattern(path: &str) -> String {
