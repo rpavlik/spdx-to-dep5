@@ -1,8 +1,16 @@
 // Copyright 2021-2023, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
-/// Operations on bare integer years
+/// Operations on bare integer years.
+///
+/// Important note: Humans use "century" to refer to a 1-indexed number of hundred-year periods since
+/// the beginning of the era (year 0). That means technically they're one larger than the year
+/// integer-divided by 100. This is a mess and super annoying.
+/// TODO: Right now we ignore this and pretend it's not true.
+
 use super::{CENTURY, NINETEEN, TWENTY};
+
+// Ugh. Centuries
 
 pub(crate) fn guess_century(two_digit_year: u16) -> u8 {
     if two_digit_year < 60 {
