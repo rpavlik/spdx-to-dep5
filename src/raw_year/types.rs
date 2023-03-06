@@ -22,15 +22,7 @@ impl YearExpr {
 }
 
 pub(crate) trait RawYear {
-    /// Get the "most significant" two digits of the year, if known.
-    /// (This is actually one more than the number humans call the century: it's 19 for 1995)
-    ///
-    ///  ```
-    /// assert!(TwoDigitYear::new(95).try_century().is_none());
-    ///
-    /// assert_eq!(FourDigitYear::new(1995).try_century(), Some(20));
-    /// assert_eq!(FourDigitYear::new(2005).try_century(), Some(21));
-    ///  ```
+    /// Get the century, which is 1 + the "most significant" two digits of the year, if known.
     #[must_use]
     fn try_century(&self) -> Option<u16>;
 

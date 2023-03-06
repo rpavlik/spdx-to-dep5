@@ -14,54 +14,25 @@ use nom::{
 
 use crate::{
     copyright::{Copyright, DecomposedCopyright},
+    raw_year::{self, RawYear, RawYearRange},
     years::{Year, YearRange, YearSpec},
 };
 
-fn four_digit_year(input: &str) -> IResult<&str, Year> {
-    map_res(
-        recognize(pair(
-            alt((tag("19"), tag("20"))),
-            count(one_of("0123456789"), 2),
-        )),
-        |out: &str| u16::from_str_radix(&out, 10).map(Year),
-    )(input)
-}
-
-fn two_digit_to_four_digit_year(num: u16) -> Year {
-    if num < 60 {
-        Year(1900 + num)
-    } else {
-        Year(2000 + num)
-    }
-}
-
-fn two_digit_year(input: &str) -> IResult<&str, Year> {
-    map_res(
-        recognize(pair(count(one_of("0123456789"), 2), peek(not(digit1)))),
-        |out: &str| u16::from_str_radix(&out, 10).map(two_digit_to_four_digit_year),
-    )(input)
-}
-
-fn year(input: &str) -> IResult<&str, Year> {
-    alt((four_digit_year, two_digit_year))(input)
-}
-
-fn year_range(input: &str) -> IResult<&str, YearRange> {
-    map(
-        separated_pair(year, tuple((space0, tag("-"), space0)), year),
-        |(begin_year, end_year)| YearRange::new(begin_year, end_year),
-    )(input)
-}
 fn year_spec(input: &str) -> IResult<&str, YearSpec> {
     // preceded and space0 are to remove leading spaces
     preceded(
         space0,
-        alt((
-            // could be a year range: always try this first
-            map(year_range, |range| YearSpec::ClosedRange(range)),
-            // Failing that, could be a single year
-            map(year, |y| YearSpec::SingleYear(y)),
-        )),
+        map(raw_year::parse::year_spec, |(b, e)| {
+            if b == e {
+                // single year
+                YearSpec::SingleYear(Year(b.to_four_digit().into_inner()))
+            } else {
+                let (b, e) = (b, e).to_four_digit_range();
+                assert!((b, e).is_proper());
+
+                YearSpec::ClosedRange(YearRange::new(Year(b.into_inner()), Year(e.into_inner())))
+            }
+        }),
     )(input)
 }
 
@@ -109,98 +80,41 @@ pub(crate) fn copyright_lines(input: &str) -> IResult<&str, Copyright> {
 
 #[cfg(test)]
 mod tests {
-    use super::{year, year_range, year_spec, year_spec_vec};
-    use crate::{
-        copyright_parsing::{four_digit_year, two_digit_year},
-        years::{Year, YearRange, YearSpec},
+    use super::{year_spec, year_spec_vec};
+    use crate::years::{Year, YearSpec};
+    use nom::{
+        combinator::{all_consuming, eof},
+        sequence::terminated,
+        Finish, IResult,
     };
-    use nom::{combinator::eof, sequence::terminated, Finish, IResult};
 
-    #[test]
-    fn parse_four_digit_year() {
-        // assert_finished_and_eq!(year("1995"))
-        assert!(four_digit_year("202").is_err());
-        assert!(four_digit_year("20").is_err());
-        assert!(four_digit_year("199").is_err());
-        assert!(four_digit_year("19").is_err());
-
-        assert_eq!(four_digit_year("2022").finish().unwrap(), ("", Year(2022)));
-        assert_eq!(four_digit_year("2022").finish().unwrap(), ("", Year(2022)));
-        assert_eq!(four_digit_year("1995").finish().unwrap(), ("", Year(1995)));
-        assert!(terminated(four_digit_year, eof)("20222").finish().is_err());
-    }
-
-    #[test]
-    fn parse_two_digityear() {
-        assert!(two_digit_year("202").is_err());
-        assert!(two_digit_year("2020").is_err());
-        assert!(two_digit_year("199").is_err());
-        assert!(two_digit_year("1995").is_err());
-
-        assert_eq!(two_digit_year("20").finish().unwrap(), ("", Year(2020)));
-        assert_eq!(two_digit_year("19").finish().unwrap(), ("", Year(2019)));
-        assert_eq!(two_digit_year("85").finish().unwrap(), ("", Year(1985)));
-    }
-
-    #[test]
-    fn parse_year() {
-        // assert_finished_and_eq!(year("1995"))
-        assert!(year("202").is_err());
-        assert!(four_digit_year("20").is_err());
-        assert!(year("199").is_err());
-        assert!(four_digit_year("19").is_err());
-
-        assert_eq!(year("20").finish().unwrap(), ("", Year(2020)));
-        assert_eq!(year("2022").finish().unwrap(), ("", Year(2022)));
-        assert_eq!(year("19").finish().unwrap(), ("", Year(2019)));
-        assert_eq!(year("2022").finish().unwrap(), ("", Year(2022)));
-        assert_eq!(year("1995").finish().unwrap(), ("", Year(1995)));
-        assert!(terminated(year, eof)("20222").finish().is_err());
-    }
-
-    #[test]
-    fn parse_year_range() {
-        // assert_finished_and_eq!(year("1995"))
-        assert!(year_range("2022").is_err());
-        assert!(year_range("2022-").is_err());
-        assert!(year_range("1995-20").is_err());
-        assert!(year_range("1995-1821").is_err());
-
-        assert_eq!(
-            year_range("1995-2022").finish().unwrap(),
-            ("", YearRange::new(Year(1995), Year(2022)))
-        );
-
-        assert_eq!(
-            year_range("1995 - 2022").finish().unwrap(),
-            ("", YearRange::new(Year(1995), Year(2022)))
-        );
-    }
-    fn year_spec_complete(input: &str) -> IResult<&str, YearSpec> {
-        terminated(year_spec, eof)(input)
-    }
     #[test]
     fn parse_year_spec() {
         assert_eq!(
-            year_spec("2022").unwrap(),
-            ("", YearSpec::SingleYear(Year(2022)))
+            all_consuming(year_spec)("2022").finish().unwrap().1,
+            YearSpec::SingleYear(Year(2022))
         );
-        assert!(year_spec_complete("2022-").is_err());
-        assert!(year_spec_complete("1995-20").is_err());
-        assert!(year_spec_complete("1995-1821").is_err());
+        assert!(all_consuming(year_spec)("2022-").finish().is_err());
 
         assert_eq!(
-            year_spec_complete("1995-2022").finish().unwrap(),
-            ("", YearSpec::range(Year(1995), Year(2022)))
+            all_consuming(year_spec)("1995-20").finish().unwrap().1,
+            YearSpec::range(Year(1995), Year(2020))
+        );
+
+        assert!(all_consuming(year_spec)("1995-1821").is_err());
+
+        assert_eq!(
+            all_consuming(year_spec)("1995-2022").finish().unwrap().1,
+            YearSpec::range(Year(1995), Year(2022))
         );
 
         assert_eq!(
-            year_spec_complete("1995 - 2022").finish().unwrap(),
-            ("", YearSpec::range(Year(1995), Year(2022)))
+            all_consuming(year_spec)("1995 - 2022").finish().unwrap().1,
+            YearSpec::range(Year(1995), Year(2022))
         );
         assert_eq!(
-            year_spec_complete("1995").finish().unwrap(),
-            ("", YearSpec::single(1995))
+            all_consuming(year_spec)("1995").finish().unwrap().1,
+            YearSpec::single(1995)
         );
     }
 
@@ -215,8 +129,12 @@ mod tests {
             ("", vec![YearSpec::SingleYear(Year(2022))])
         );
         assert!(year_spec_vec_complete("2022-").is_err());
-        assert!(year_spec_vec_complete("1995-20").is_err());
         assert!(year_spec_vec_complete("1995-1821").is_err());
+
+        assert_eq!(
+            year_spec_vec_complete("1995-20").finish().unwrap().1,
+            vec![YearSpec::range(Year(1995), Year(2020))]
+        );
 
         assert_eq!(
             year_spec_vec_complete("1995-2022").finish().unwrap(),
