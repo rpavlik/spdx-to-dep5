@@ -25,20 +25,20 @@ pub(crate) trait IsSingleYear {
     fn is_single_year(&self) -> bool;
 }
 
-pub(crate) trait SingleYearNormalizationOptions {
+pub trait SingleYearNormalizationOptions {
     /// Get whether we allow the century to be guessed entirely when there is no four-digit year
     /// suitably close to imply a century, and, if this is used on a range, the two-digit begin
     /// is less than or equal to the two-digit end so we cannot infer that they span Y2K
     fn get_allow_century_guess(&self) -> bool;
 }
-pub(crate) trait SetSingleYearNormalizationOptions: SingleYearNormalizationOptions {
+pub trait SetSingleYearNormalizationOptions: SingleYearNormalizationOptions {
     /// Set whether we allow the century to be guessed entirely when there is no four-digit year
     /// suitably close to imply a century, and, if this is used on a range, the two-digit begin
     /// is less than or equal to the two-digit end so we cannot infer that they span Y2K
     fn allow_century_guess(self, allow: bool) -> Self;
 }
 
-pub(crate) trait YearRangeNormalizationOptions: SingleYearNormalizationOptions {
+pub trait YearRangeNormalizationOptions: SingleYearNormalizationOptions {
     /// Get whether, if both years of a range are two-digit years, and the second is smaller than the first,
     /// can we assume the years span Y2K? This is a reasonable assumption as long as you are working
     /// with computer software in the 21st century.

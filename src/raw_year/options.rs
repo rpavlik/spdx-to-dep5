@@ -8,17 +8,17 @@ use super::traits::{
 };
 
 #[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct YearRangeNormalization {
+pub struct YearRangeNormalization {
     /// Should allow the century to be guessed entirely when there is no four-digit year
     /// suitably close to imply a century?
-    pub(crate) allow_century_guess: bool,
+    pub allow_century_guess: bool,
     /// If both years of a range are two-digit years, and the second is smaller than the first,
     /// can we assume the years span Y2K? This is a reasonable assumption as long as you are working
     /// with computer software in the 21st century.
-    pub(crate) allow_assuming_y2k_span: bool,
+    pub allow_assuming_y2k_span: bool,
     /// Should we allow the century part of a year range's endpoint to be inferred
     /// across a century boundary based on the other endpoint's known century.
-    pub(crate) allow_mixed_size_implied_century_rollover: bool,
+    pub allow_mixed_size_implied_century_rollover: bool,
 }
 
 impl YearRangeNormalization {

@@ -42,6 +42,23 @@ struct Args {
     /// Omit files with no copyright data
     #[arg(short, long)]
     omit_no_copyright: bool,
+
+
+    /// Should allow the century to be guessed entirely when there is no four-digit year
+    /// suitably close to imply a century?
+    #[arg(default_value = "false")]
+    allow_century_guess: bool,
+
+    /// If both years of a range are two-digit years, and the second is smaller than the first,
+    /// can we assume the years span Y2K? This is a reasonable assumption as long as you are working
+    /// with computer software in the 21st century.
+    #[arg(default_value = "false")]
+    allow_assuming_y2k_span: bool,
+
+    /// Should we allow the century part of a year range's endpoint to be inferred
+    /// across a century boundary based on the other endpoint's known century.
+    #[arg(default_value = "false")]
+    allow_mixed_size_implied_century_rollover: bool,
 }
 
 /// Filter files according to arguments (at most one of `exclude` and `include` may be non-empty)
@@ -74,7 +91,7 @@ fn main() -> Result<(), spdx_rs::error::SpdxError> {
     let doc = spdx_from_tag_value(&file)?;
 
     // Omit or normalize the "NONE" text that REUSE tends to put into SPDX files.
-    let spdx_information: Vec<_> = if args.omit_no_copyright {
+    let mut spdx_information: Vec<_> = if args.omit_no_copyright {
         doc.file_information
             .into_iter()
             .filter(|f| f.copyright_text != "NONE")
