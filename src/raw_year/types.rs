@@ -2,141 +2,21 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use super::util;
+use crate::years::Year;
 
-pub(crate) trait IsProper {
-    /// Is this a proper range, with the beginning year less than or equal to the end year?
-    ///
-    /// If both years are two-digit, we assume the century is the same
-    fn is_proper(&self) -> bool;
-}
-
-trait TryIsProper {
-    /// If we are able to know, is this range proper?
-    ///
-    /// If both years are two-digit, we assume the century is the same
-    fn try_is_proper(&self) -> Option<bool>;
-}
+use super::{
+    traits::{
+        ConfigurableRawYearRange, IsProper, IsSingleYear, SetSingleYearNormalizationOptions,
+        SingleYearNormalizationOptions, TryIsProper, YearRangeNormalizationOptions,
+    },
+    util, RawYear, RawYearRange,
+};
 
 // impl<T: IsProper> TryIsProper for T {
 //     fn try_is_proper(&self) -> Option<bool> {
 //         Some(self.is_proper())
 //     }
 // }
-
-pub(crate) trait IsSingleYear {
-    /// Is this a "single year" range, with the begin and end year equal?
-    ///
-    /// If both years are two-digit, we assume the century is the same
-    fn is_single_year(&self) -> bool;
-}
-
-pub(crate) trait SingleYearNormalizationOptions {
-    /// Get whether we allow the century to be guessed entirely when there is no four-digit year
-    /// suitably close to imply a century, and, if this is used on a range, the two-digit begin
-    /// is less than or equal to the two-digit end so we cannot infer that they span Y2K
-    fn get_allow_century_guess(&self) -> bool;
-}
-trait SetSingleYearNormalizationOptions: SingleYearNormalizationOptions {
-    /// Set whether we allow the century to be guessed entirely when there is no four-digit year
-    /// suitably close to imply a century, and, if this is used on a range, the two-digit begin
-    /// is less than or equal to the two-digit end so we cannot infer that they span Y2K
-    fn allow_century_guess(self, allow: bool) -> Self;
-}
-
-pub(crate) trait YearRangeNormalizationOptions: SingleYearNormalizationOptions {
-    /// Get whether, if both years of a range are two-digit years, and the second is smaller than the first,
-    /// can we assume the years span Y2K? This is a reasonable assumption as long as you are working
-    /// with computer software in the 21st century.
-    fn get_allow_assuming_y2k_span(&self) -> bool;
-
-    /// Get whether we allow the century part of a year range's endpoint to be inferred
-    /// across a century boundary based on the other endpoint's known century.
-    fn get_allow_mixed_size_implied_century_rollover(&self) -> bool;
-}
-
-trait SetYearRangeNormalizationOptions:
-    SetSingleYearNormalizationOptions + YearRangeNormalizationOptions
-{
-    /// Set whether, if both years of a range are two-digit years, and the second is smaller than the first,
-    /// can we assume the years span Y2K? This is a reasonable assumption as long as you are working
-    /// with computer software in the 21st century.
-    fn allow_assuming_y2k_span(self, allow: bool) -> Self;
-
-    /// Set whether we allow the century part of a year range's endpoint to be inferred
-    /// across a century boundary based on the other endpoint's known century.
-    fn allow_mixed_size_implied_century_rollover(self, allow: bool) -> Self;
-}
-
-#[derive(Debug, Clone, Copy)]
-struct YearRangeNormalization {
-    /// Should allow the century to be guessed entirely when there is no four-digit year
-    /// suitably close to imply a century?
-    allow_century_guess: bool,
-    /// If both years of a range are two-digit years, and the second is smaller than the first,
-    /// can we assume the years span Y2K? This is a reasonable assumption as long as you are working
-    /// with computer software in the 21st century.
-    allow_assuming_y2k_span: bool,
-    /// Should we allow the century part of a year range's endpoint to be inferred
-    /// across a century boundary based on the other endpoint's known century.
-    allow_mixed_size_implied_century_rollover: bool,
-}
-
-impl Default for YearRangeNormalization {
-    fn default() -> Self {
-        Self {
-            allow_century_guess: false,
-            allow_assuming_y2k_span: false,
-            allow_mixed_size_implied_century_rollover: false,
-        }
-    }
-}
-impl YearRangeNormalization {
-    pub(crate) fn new() -> Self {
-        Default::default()
-    }
-}
-
-impl SingleYearNormalizationOptions for YearRangeNormalization {
-    fn get_allow_century_guess(&self) -> bool {
-        self.allow_century_guess
-    }
-}
-
-impl SetSingleYearNormalizationOptions for YearRangeNormalization {
-    fn allow_century_guess(self, allow: bool) -> Self {
-        Self {
-            allow_century_guess: allow,
-            ..self
-        }
-    }
-}
-
-impl YearRangeNormalizationOptions for YearRangeNormalization {
-    fn get_allow_assuming_y2k_span(&self) -> bool {
-        self.allow_assuming_y2k_span
-    }
-
-    fn get_allow_mixed_size_implied_century_rollover(&self) -> bool {
-        self.allow_mixed_size_implied_century_rollover
-    }
-}
-
-impl SetYearRangeNormalizationOptions for YearRangeNormalization {
-    fn allow_assuming_y2k_span(self, allow: bool) -> Self {
-        Self {
-            allow_assuming_y2k_span: allow,
-            ..self
-        }
-    }
-
-    fn allow_mixed_size_implied_century_rollover(self, allow: bool) -> Self {
-        Self {
-            allow_mixed_size_implied_century_rollover: allow,
-            ..self
-        }
-    }
-}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub(crate) enum YearExpr {
@@ -153,61 +33,6 @@ impl YearExpr {
     pub(crate) fn new_four_digit(y: u16) -> Self {
         YearExpr::FourDigit(FourDigitYear::new(y))
     }
-}
-
-pub(crate) trait RawYear {
-    /// Get the century, which is 1 + the "most significant" two digits of the year, if known.
-    #[must_use]
-    fn try_century(&self) -> Option<u16>;
-
-    /// Get the least-significant two digits of the year.
-    #[must_use]
-    fn two_digit(&self) -> TwoDigitYear;
-
-    /// Get the year as a four-digit year, if it actually is one
-    #[must_use]
-    fn try_as_four_digit(&self) -> Option<FourDigitYear>;
-
-    /// Using a simple heuristic if needed, get the year as a four-digit year.
-    #[must_use]
-    fn to_four_digit(&self) -> FourDigitYear;
-
-    /// If this is a two digit year, use the provided century to make a 4 digit year
-    #[must_use]
-    fn to_four_digit_with_century_hint(&self, century: u16) -> FourDigitYear;
-
-    /// Wrap in a generic YearExpr enum, if not already done
-    fn to_year_expr(&self) -> YearExpr;
-
-    /// Get the number wrapped deep inside
-    fn into_inner(self) -> u16;
-}
-
-pub(crate) trait ConfigurableRawYear: RawYear {
-    /// Try converting this year to a 4 digit years, with the provided options constraining the conversion
-    fn try_to_four_digit(
-        &self,
-        options: impl SingleYearNormalizationOptions,
-    ) -> Option<FourDigitYear>;
-}
-
-pub(crate) trait RawYearRange {
-    /// Get the beginning year, as a generic YearExpr
-    fn begin(&self) -> YearExpr;
-    /// Get the ending year, as a generic YearExpr
-    fn end(&self) -> YearExpr;
-
-    /// Convert this range so that both begin and end are four digit years,
-    /// making our best guess if required. Always succeeds but some guesses are dubious
-    fn to_four_digit_range(&self) -> (FourDigitYear, FourDigitYear);
-}
-
-pub(crate) trait ConfigurableRawYearRange: RawYearRange {
-    /// Try converting this range to a proper range of 4 digit years, with the provided options constraining the conversion
-    fn try_to_four_digit_range(
-        &self,
-        options: impl YearRangeNormalizationOptions,
-    ) -> Option<(FourDigitYear, FourDigitYear)>;
 }
 
 /// Newtype wrapping a "two digit year" - one that excludes the century and wraps every 100 years
@@ -248,6 +73,12 @@ impl RawYear for TwoDigitYear {
     }
     fn into_inner(self) -> u16 {
         self.0
+    }
+}
+
+impl Into<YearExpr> for TwoDigitYear {
+    fn into(self) -> YearExpr {
+        self.to_year_expr()
     }
 }
 
@@ -294,6 +125,12 @@ impl RawYear for FourDigitYear {
     }
     fn into_inner(self) -> u16 {
         self.0
+    }
+}
+
+impl Into<YearExpr> for FourDigitYear {
+    fn into(self) -> YearExpr {
+        self.to_year_expr()
     }
 }
 
@@ -502,6 +339,8 @@ impl ConfigurableRawYearRange for (FourDigitYear, TwoDigitYear) {
     }
 }
 
+// impl TryIsProper for (FourDigitYear, TwoDigitYear) {}
+
 /// (2-digit, 4-digit)
 /// "Weird flex but ok" - unusual format but we can make some meaningful guesses.
 impl RawYearRange for (TwoDigitYear, FourDigitYear) {
@@ -577,7 +416,7 @@ impl RawYearRange for (YearExpr, YearExpr) {
 impl ConfigurableRawYearRange for (YearExpr, YearExpr) {
     fn try_to_four_digit_range(
         &self,
-        options: impl YearRangeNormalizationOptions,
+        options: impl YearRangeNormalizationOptions + Copy,
     ) -> Option<(FourDigitYear, FourDigitYear)> {
         match (self.0, self.1) {
             (YearExpr::TwoDigit(b), YearExpr::TwoDigit(e)) => {
@@ -607,24 +446,13 @@ impl ConfigurableRawYearRange for (YearExpr, YearExpr) {
 //     }
 // }
 
-impl<T: RawYear, U: RawYear> TryIsProper for (T, U) {
-    fn try_is_proper(&self) -> Option<bool> {
-        let b = self.0.to_year_expr();
-        let e = self.1.to_year_expr();
-
-        match (b, e) {
-            (YearExpr::TwoDigit(b), YearExpr::TwoDigit(e)) => Some((b, e).is_proper()),
-            (YearExpr::TwoDigit(b), YearExpr::FourDigit(e)) => None,
-            (YearExpr::FourDigit(b), YearExpr::TwoDigit(e)) => None,
-            (YearExpr::FourDigit(b), YearExpr::FourDigit(e)) => Some((b, e).is_proper()),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
 
-    use crate::raw_year::types::{FourDigitYear, IsProper, TryIsProper, TwoDigitYear};
+    use crate::raw_year::{
+        traits::{IsProper, TryIsProper},
+        types::{FourDigitYear, TwoDigitYear},
+    };
 
     use super::{RawYear, RawYearRange};
 
