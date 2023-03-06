@@ -28,8 +28,8 @@ pub(crate) trait RawYear {
     ///  ```
     /// assert!(TwoDigitYear::new(95).try_century().is_none());
     ///
-    /// assert_eq!(FourDigitYear::new(1995).try_century(), Some(19));
-    /// assert_eq!(FourDigitYear::new(2005).try_century(), Some(20));
+    /// assert_eq!(FourDigitYear::new(1995).try_century(), Some(20));
+    /// assert_eq!(FourDigitYear::new(2005).try_century(), Some(21));
     ///  ```
     #[must_use]
     fn try_century(&self) -> Option<u16>;
@@ -229,8 +229,8 @@ impl RawYearRange for (TwoDigitYear, TwoDigitYear) {
         if e.0 < b.0 {
             // range spans y2k
             (
-                b.to_four_digit_with_century_hint(19),
-                e.to_four_digit_with_century_hint(20),
+                b.to_four_digit_with_century_hint(20),
+                e.to_four_digit_with_century_hint(21),
             )
         } else {
             // guess the first year's century, re-use it for the second year
@@ -385,40 +385,40 @@ mod tests {
         {
             assert_eq!(
                 TwoDigitYear(59)
-                    .to_four_digit_with_century_hint(19)
+                    .to_four_digit_with_century_hint(20)
                     .into_inner(),
                 1959
             );
 
             assert_eq!(
                 FourDigitYear(2059)
-                    .to_four_digit_with_century_hint(19)
+                    .to_four_digit_with_century_hint(20)
                     .into_inner(),
                 2059
             );
             assert_eq!(
                 FourDigitYear(1959)
-                    .to_four_digit_with_century_hint(19)
+                    .to_four_digit_with_century_hint(20)
                     .into_inner(),
                 1959
             );
 
             assert_eq!(
                 TwoDigitYear(95)
-                    .to_four_digit_with_century_hint(19)
+                    .to_four_digit_with_century_hint(20)
                     .into_inner(),
                 1995
             );
 
             assert_eq!(
                 FourDigitYear(1995)
-                    .to_four_digit_with_century_hint(19)
+                    .to_four_digit_with_century_hint(20)
                     .into_inner(),
                 1995
             );
             assert_eq!(
                 FourDigitYear(2095)
-                    .to_four_digit_with_century_hint(19)
+                    .to_four_digit_with_century_hint(20)
                     .into_inner(),
                 2095
             );
@@ -426,40 +426,40 @@ mod tests {
         {
             assert_eq!(
                 TwoDigitYear(59)
-                    .to_four_digit_with_century_hint(20)
+                    .to_four_digit_with_century_hint(21)
                     .into_inner(),
                 2059
             );
 
             assert_eq!(
                 FourDigitYear(2059)
-                    .to_four_digit_with_century_hint(20)
+                    .to_four_digit_with_century_hint(21)
                     .into_inner(),
                 2059
             );
             assert_eq!(
                 FourDigitYear(1959)
-                    .to_four_digit_with_century_hint(20)
+                    .to_four_digit_with_century_hint(21)
                     .into_inner(),
                 1959
             );
 
             assert_eq!(
                 TwoDigitYear(95)
-                    .to_four_digit_with_century_hint(20)
+                    .to_four_digit_with_century_hint(21)
                     .into_inner(),
                 2095
             );
 
             assert_eq!(
                 FourDigitYear(1995)
-                    .to_four_digit_with_century_hint(20)
+                    .to_four_digit_with_century_hint(21)
                     .into_inner(),
                 1995
             );
             assert_eq!(
                 FourDigitYear(2095)
-                    .to_four_digit_with_century_hint(20)
+                    .to_four_digit_with_century_hint(21)
                     .into_inner(),
                 2095
             );
@@ -483,13 +483,13 @@ mod tests {
     fn century() {
         assert_eq!(TwoDigitYear(59).try_century(), None);
 
-        assert_eq!(FourDigitYear(2059).try_century(), Some(20));
-        assert_eq!(FourDigitYear(1959).try_century(), Some(19));
+        assert_eq!(FourDigitYear(2059).try_century(), Some(21));
+        assert_eq!(FourDigitYear(1959).try_century(), Some(20));
 
         assert_eq!(TwoDigitYear(95).try_century(), None);
 
-        assert_eq!(FourDigitYear(1995).try_century(), Some(19));
-        assert_eq!(FourDigitYear(2095).try_century(), Some(20));
+        assert_eq!(FourDigitYear(1995).try_century(), Some(20));
+        assert_eq!(FourDigitYear(2095).try_century(), Some(21));
     }
 
     #[test]

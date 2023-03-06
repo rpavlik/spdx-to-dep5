@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use clap::Parser;
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -34,38 +35,43 @@ fn two_digit_year(input: &str) -> IResult<&str, TwoDigitYear> {
     })(input)
 }
 
-fn trailing_year_digits(qty: usize) -> impl FnMut(&str) -> IResult<&str, &str> {
-    move |input: &str| recognize(pair(count(digit, qty), peek(not(digit))))(input)
-}
-
 fn year(input: &str) -> IResult<&str, YearExpr> {
     alt((
-        map(two_digit_year, |y| y.to_year_expr()),
         map(four_digit_year, |y| y.to_year_expr()),
+        map(two_digit_year, |y| y.to_year_expr()),
     ))(input)
 }
 
-fn year_range(input: &str) -> IResult<&str, (YearExpr, YearExpr)> {
-    // let range_end = alt(l)
-    let range_end =
-    let four_thru_two = trailing_year_digits(2)
-
-    map(
-        separated_pair(year, tuple((space0, tag("-"), space0)), year),
-        |(begin_year, end_year)| YearRange::new(begin_year, end_year),
-    )
-    (input)
+fn range_delim(input: &str) -> IResult<&str, &str> {
+    recognize(tuple((space0, tag("-"), space0)))(input)
 }
 
-fn year_spec(input: &str) -> IResult<&str, YearSpec> {
+fn convert_range<T: RawYear, U: RawYear>(range: (T, U)) -> (YearExpr, YearExpr) {
+    (range.0.to_year_expr(), range.1.to_year_expr())
+}
+
+fn year_range(input: &str) -> IResult<&str, (YearExpr, YearExpr)> {
+    let range44 = separated_pair(four_digit_year, range_delim, four_digit_year);
+    let range42 = separated_pair(four_digit_year, range_delim, two_digit_year);
+    let range24 = separated_pair(two_digit_year, range_delim, four_digit_year);
+    let range22 = separated_pair(two_digit_year, range_delim, two_digit_year);
+    alt((
+        map(range44, convert_range),
+        map(range42, convert_range),
+        map(range24, convert_range),
+        map(range22, convert_range),
+    ))(input)
+}
+
+fn year_spec(input: &str) -> IResult<&str, (YearExpr, YearExpr)> {
     // preceded and space0 are to remove leading spaces
     preceded(
         space0,
         alt((
             // could be a year range: always try this first
-            map(year_range, |range| YearSpec::ClosedRange(range)),
-            // Failing that, could be a single year
-            map(year, |y| YearSpec::SingleYear(y)),
+            year_range,
+            // Failing that, could be a single year (represented by a range with same begin and end)
+            map(year, |y| (y, y)),
         )),
     )(input)
 }
@@ -81,10 +87,10 @@ mod tests {
     #[test]
     fn parse_year() {
         // assert_finished_and_eq!(year("1995"))
-        assert!(all_consuming(year)("202").is_err());
         assert!(all_consuming(four_digit_year)("20").is_err());
-        assert!(all_consuming(year)("199").is_err());
+        assert!(all_consuming(year)("202").is_err());
         assert!(all_consuming(four_digit_year)("19").is_err());
+        assert!(all_consuming(year)("199").is_err());
 
         assert_eq!(
             all_consuming(year)("20")

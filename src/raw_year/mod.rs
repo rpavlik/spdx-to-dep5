@@ -2,13 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-mod util;
-mod types;
 mod parse;
+mod types;
+mod util;
 
-
-pub(crate) const CENTURY: u16 = 100;
-
-pub(crate) const NINETEEN: u8 = 19;
-pub(crate) const TWENTY: u8 = 20;
-
+/// Number of years in a century
+pub(crate) const CENTURY_DURATION: u16 = 100;
