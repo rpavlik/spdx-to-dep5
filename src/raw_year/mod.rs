@@ -2,11 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+pub(crate) mod options;
 pub(crate) mod parse;
+pub(crate) mod traits;
 mod types;
 mod util;
 
 /// Number of years in a century
 pub(crate) const CENTURY_DURATION: u16 = 100;
 
-pub(crate) use types::{IsProper, RawYear, RawYearRange};
+pub(crate) use traits::{RawYear, RawYearRange};

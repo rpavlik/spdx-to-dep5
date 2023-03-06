@@ -12,7 +12,10 @@ use nom::{
     IResult,
 };
 
-use super::types::{FourDigitYear, RawYear, TwoDigitYear, YearExpr};
+use super::{
+    types::{FourDigitYear, TwoDigitYear, YearExpr},
+    RawYear,
+};
 
 fn digit(input: &str) -> IResult<&str, char> {
     one_of("0123456789")(input)
@@ -91,7 +94,10 @@ pub(crate) fn year_spec(input: &str) -> IResult<&str, (YearExpr, YearExpr)> {
 mod tests {
     use nom::{combinator::all_consuming, Finish};
 
-    use crate::raw_year::types::{FourDigitYear, RawYear, YearExpr};
+    use crate::raw_year::{
+        types::{FourDigitYear, YearExpr},
+        RawYear,
+    };
 
     use super::{four_digit_year, two_digit_year, year, year_range, year_range_44};
 
@@ -104,6 +110,11 @@ mod tests {
         assert!(all_consuming(year)("199").is_err());
 
         assert_eq!(
+            all_consuming(year)("20").finish().unwrap().1,
+            YearExpr::new_two_digit(20)
+        );
+
+        assert_eq!(
             all_consuming(year)("20")
                 .finish()
                 .unwrap()
@@ -111,6 +122,7 @@ mod tests {
                 .to_four_digit(),
             FourDigitYear::new(2020)
         );
+
         assert_eq!(
             all_consuming(year)("2022")
                 .finish()

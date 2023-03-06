@@ -1,10 +1,10 @@
-// Copyright 2021-2022, Collabora, Ltd.
+// Copyright 2021-2023, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use nom::Finish;
 
-use crate::{copyright_parsing, years::YearSpec};
+use crate::{copyright_parsing, raw_year::traits::YearRangeNormalizationOptions, years::YearSpec};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct DecomposedCopyright {
@@ -29,8 +29,11 @@ impl DecomposedCopyright {
 }
 
 impl Copyright {
-    fn try_parse(statement: &str) -> Result<Self, nom::error::Error<&str>> {
-        copyright_parsing::copyright_lines(statement)
+    fn try_parse(
+        options: impl YearRangeNormalizationOptions + Copy,
+        statement: &str,
+    ) -> Result<Self, nom::error::Error<&str>> {
+        copyright_parsing::copyright_lines(options)(statement)
             .finish()
             .map(|(_leftover, parsed)| parsed)
     }
