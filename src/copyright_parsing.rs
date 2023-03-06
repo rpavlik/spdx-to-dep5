@@ -5,10 +5,10 @@
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{digit1, multispace0, not_line_ending, one_of, space0, space1},
-    combinator::{eof, map, map_res, not, peek, recognize, rest, verify},
-    multi::{count, separated_list1},
-    sequence::{delimited, pair, preceded, separated_pair, terminated, tuple},
+    character::complete::{multispace0, not_line_ending, space0, space1},
+    combinator::{eof, map, recognize, rest, verify},
+    multi::separated_list1,
+    sequence::{delimited, preceded, separated_pair, terminated, tuple},
     IResult,
 };
 
@@ -53,7 +53,7 @@ fn copyright_line(input: &str) -> IResult<&str, DecomposedCopyright> {
             //     space1,
             // could be separated by a comma with some optional spaces
             verify(recognize(tuple((space0, tag(","), space0))), |s: &str| {
-                s.len() > 0
+                !s.is_empty()
             }),
             // )),
             // Grab the rest of the line as the holder
@@ -70,7 +70,7 @@ pub(crate) fn copyright_lines(input: &str) -> IResult<&str, Copyright> {
     alt((
         map(
             terminated(copyright_line, tuple((multispace0, eof))),
-            |decomposed| Copyright::Decomposable(decomposed),
+            Copyright::Decomposable,
         ),
         map(preceded(multispace0, rest), |s: &str| {
             Copyright::Complex(s.trim().to_string())

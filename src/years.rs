@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use std::{fmt::Display, iter::once};
+use std::fmt::Display;
 
 use itertools::Itertools;
 
@@ -58,7 +58,7 @@ impl YearRange {
             None
         } else {
             // otherwise just compare on starting year
-            Some(self.begin.cmp(&single))
+            Some(self.begin.cmp(single))
         }
     }
     fn order_single_year_for_merging(&self, single: &Year) -> std::cmp::Ordering {

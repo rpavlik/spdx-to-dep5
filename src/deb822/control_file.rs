@@ -40,7 +40,7 @@ fn format_field<'a, T: Iterator<Item = &'a str>>(
                     } else {
                         line.trim_end()
                     };
-                    format!("  {}", rest_of_line)
+                    format!("  {rest_of_line}")
                 }))
                 .collect();
             Ok(lines.join("\n"))

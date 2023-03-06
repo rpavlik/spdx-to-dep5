@@ -25,13 +25,13 @@ fn century(input: &str) -> IResult<&str, &str> {
 
 fn four_digit_year(input: &str) -> IResult<&str, FourDigitYear> {
     map_res(recognize(pair(century, count(digit, 2))), |out: &str| {
-        u16::from_str_radix(&out, 10).map(FourDigitYear::new)
+        (&out).parse::<u16>().map(FourDigitYear::new)
     })(input)
 }
 
 fn two_digit_year(input: &str) -> IResult<&str, TwoDigitYear> {
     map_res(recognize(count(digit, 2)), |out: &str| {
-        u16::from_str_radix(&out, 10).map(TwoDigitYear::new)
+        (&out).parse::<u16>().map(TwoDigitYear::new)
     })(input)
 }
 
