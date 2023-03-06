@@ -14,7 +14,7 @@ use nom::{
 
 use crate::{
     copyright::{Copyright, DecomposedCopyright},
-    raw_year::{self, RawYear, RawYearRange},
+    raw_year::{self, IsProper, RawYear, RawYearRange},
     years::{Year, YearRange, YearSpec},
 };
 

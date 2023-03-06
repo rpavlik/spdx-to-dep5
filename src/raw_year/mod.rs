@@ -9,4 +9,4 @@ mod util;
 /// Number of years in a century
 pub(crate) const CENTURY_DURATION: u16 = 100;
 
-pub(crate) use types::{RawYear, RawYearRange};
+pub(crate) use types::{IsProper, RawYear, RawYearRange};
