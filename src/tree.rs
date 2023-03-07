@@ -1,4 +1,4 @@
-// Copyright 2021-2022, Collabora, Ltd.
+// Copyright 2021-2023, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
@@ -15,6 +15,7 @@ use crate::{
     copyright::Copyright,
     deb822::dep5::FilesParagraph,
     raw_year::traits::YearRangeNormalizationOptions,
+    years::{YearRangeCollection, YearSpec},
 };
 
 /// Identifier per `Metadata`
@@ -26,6 +27,14 @@ struct MetadataId(usize);
 pub struct Metadata {
     pub copyright_text: String,
     pub license: Vec<SpdxExpression>,
+}
+
+trait MetadataStore {
+    type CopyrightType;
+
+    fn get_license_for_id(&self, id: MetadataId) -> Option<&Vec<SpdxExpression>>;
+
+    fn get_copyright_text_for_id(&self, id: MetadataId) -> Option<&Self::CopyrightType>;
 }
 
 /// A part of a path, which might have a Metadata (copyright + license) associated with it, by ID.
@@ -218,6 +227,18 @@ impl CopyrightDataTree {
     }
 }
 
+impl MetadataStore for CopyrightDataTree {
+    type CopyrightType = String;
+
+    fn get_license_for_id(&self, id: MetadataId) -> Option<&Vec<SpdxExpression>> {
+        self.metadata.get(id).map(|m| &m.license)
+    }
+
+    fn get_copyright_text_for_id(&self, id: MetadataId) -> Option<&Self::CopyrightType> {
+        self.metadata.get(id).map(|m| &m.copyright_text)
+    }
+}
+
 impl FromIterator<models::FileInformation> for CopyrightDataTree {
     fn from_iter<T: IntoIterator<Item = models::FileInformation>>(iter: T) -> Self {
         let mut ret = Self::new();
@@ -256,6 +277,26 @@ impl Iterator for NodeIdsWithMetadata<'_> {
         None
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct LicenseAndHolders {
+    license: Vec<SpdxExpression>,
+    holders: Vec<String>,
+}
+
+impl LicenseAndHolders {
+    fn new(license: Vec<SpdxExpression>, holders: impl IntoIterator<Item = String>) -> Self {
+        let holders: Vec<String> = holders.into_iter().sorted().collect();
+        Self { license, holders }
+    }
+}
+
+struct SubtreeSummarizer {
+    ranges_per_holder: HashMap<String, YearRangeCollection>,
+    license_and_holders_usage_count: HashMap<LicenseAndHolders, u32>,
+}
+
+impl SubtreeSummarizer {}
 
 pub fn summarize_metadata(
     tree: &CopyrightDataTree,

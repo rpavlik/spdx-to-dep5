@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use std::fmt::Display;
+use std::{collections::BinaryHeap, fmt::Display};
 
 use itertools::Itertools;
 
@@ -25,6 +25,14 @@ impl YearRange {
     pub(crate) fn new(begin: Year, end: Year) -> Self {
         assert!(begin <= end);
         Self { begin, end }
+    }
+
+    pub fn begin(&self) -> Year {
+        self.begin
+    }
+
+    pub fn end(&self) -> Year {
+        self.end
     }
 
     fn is_single_year(&self) -> bool {
@@ -107,7 +115,9 @@ impl Display for YearRange {
         }
     }
 }
-fn coalesce_years(years: impl IntoIterator<Item = YearRange>) -> impl Iterator<Item = YearRange> {
+pub fn coalesce_years(
+    years: impl IntoIterator<Item = YearRange>,
+) -> impl Iterator<Item = YearRange> {
     years.into_iter().coalesce(|a, b| {
         if a.can_merge(&b) {
             Ok(a.merge_with(b))
@@ -162,5 +172,67 @@ impl YearSpec {
     /// Helper to more concisely construct a closed range of years
     pub(crate) fn range(begin: Year, end: Year) -> Self {
         Self::ClosedRange(YearRange { begin, end })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct TotalOrderedYearRange(YearRange);
+
+impl TotalOrderedYearRange {
+    fn make_key(&self) -> (i32, i32) {
+        // convert them to signed, and negate the end so that larger ranges (with higher "end" values) sort first.
+        (i32::from(self.0.begin().0), -i32::from(self.0.end().0))
+    }
+}
+
+impl Ord for TotalOrderedYearRange {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.make_key().cmp(&other.make_key())
+    }
+}
+
+impl PartialOrd for TotalOrderedYearRange {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl From<YearRange> for TotalOrderedYearRange {
+    fn from(value: YearRange) -> Self {
+        Self(value)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct YearRangeCollection {
+    years_heap: BinaryHeap<TotalOrderedYearRange>,
+}
+
+impl YearRangeCollection {
+    pub fn new() -> Self {
+        YearRangeCollection::default()
+    }
+    pub fn accumulate(&mut self, year_spec: YearSpec) {
+        self.years_heap
+            .push(TotalOrderedYearRange::from(YearRange::from(year_spec)));
+    }
+    pub fn into_coalesced_vec(self) -> Vec<YearRange> {
+        coalesce_years(
+            self.years_heap
+                .into_sorted_vec()
+                .into_iter()
+                .map(|tosr| tosr.0),
+        )
+        .collect()
+    }
+}
+
+impl Extend<YearSpec> for YearRangeCollection {
+    fn extend<T: IntoIterator<Item = YearSpec>>(&mut self, iter: T) {
+        self.years_heap.extend(
+            iter.into_iter()
+                .map(YearRange::from)
+                .map(TotalOrderedYearRange::from),
+        );
     }
 }
