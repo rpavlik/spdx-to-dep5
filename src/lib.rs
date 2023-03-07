@@ -9,3 +9,4 @@ pub mod deb822;
 pub mod raw_year;
 pub mod tree;
 mod years;
+pub(crate) mod atom_table;
