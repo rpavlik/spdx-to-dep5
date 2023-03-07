@@ -2,7 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use std::{collections::HashMap, hash::Hash, iter::FromIterator};
+use std::{
+    collections::{BinaryHeap, HashMap},
+    hash::Hash,
+    iter::FromIterator,
+};
 
 use derive_more::{From, Into};
 use indextree::{Arena, Node, NodeEdge, NodeId, Traverse};
@@ -15,6 +19,7 @@ use crate::{
     copyright::Copyright,
     deb822::dep5::FilesParagraph,
     raw_year::traits::YearRangeNormalizationOptions,
+    years::{coalesce_years, YearRange, YearRangeCollection, YearSpec},
 };
 
 /// Identifier per `Metadata`
@@ -26,6 +31,14 @@ struct MetadataId(usize);
 pub struct Metadata {
     pub copyright_text: String,
     pub license: Vec<SimpleExpression>,
+}
+
+trait MetadataStore {
+    type CopyrightType;
+
+    fn get_license_for_id(&self, id: MetadataId) -> Option<&Vec<SimpleExpression>>;
+
+    fn get_copyright_text_for_id(&self, id: MetadataId) -> Option<&Self::CopyrightType>;
 }
 
 /// A part of a path, which might have a Metadata (copyright + license) associated with it, by ID.
@@ -218,6 +231,18 @@ impl CopyrightDataTree {
     }
 }
 
+impl MetadataStore for CopyrightDataTree {
+    type CopyrightType = String;
+
+    fn get_license_for_id(&self, id: MetadataId) -> Option<&Vec<SimpleExpression>> {
+        self.metadata.get(id).map(|m| &m.license)
+    }
+
+    fn get_copyright_text_for_id(&self, id: MetadataId) -> Option<&Self::CopyrightType> {
+        self.metadata.get(id).map(|m| &m.copyright_text)
+    }
+}
+
 impl FromIterator<models::FileInformation> for CopyrightDataTree {
     fn from_iter<T: IntoIterator<Item = models::FileInformation>>(iter: T) -> Self {
         let mut ret = Self::new();
@@ -256,6 +281,26 @@ impl Iterator for NodeIdsWithMetadata<'_> {
         None
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct LicenseAndHolders {
+    license: Vec<SimpleExpression>,
+    holders: Vec<String>,
+}
+
+impl LicenseAndHolders {
+    fn new(license: Vec<SimpleExpression>, holders: impl IntoIterator<Item = String>) -> Self {
+        let holders: Vec<String> = holders.into_iter().sorted().collect();
+        Self { license, holders }
+    }
+}
+
+struct SubtreeSummarizer {
+    ranges_per_holder: HashMap<String, YearRangeCollection>,
+    license_and_holders_usage_count: HashMap<LicenseAndHolders, u32>,
+}
+
+impl SubtreeSummarizer {}
 
 pub fn summarize_metadata(
     tree: &CopyrightDataTree,
