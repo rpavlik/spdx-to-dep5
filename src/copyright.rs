@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use std::fmt::{Display, Write};
+use std::fmt::Display;
 
 use itertools::Itertools;
 use nom::Finish;
@@ -11,8 +11,8 @@ use crate::{copyright_parsing, raw_year::traits::YearRangeNormalizationOptions, 
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DecomposedCopyright {
-    years: Vec<YearSpec>,
-    holder: String,
+    pub years: Vec<YearSpec>,
+    pub holder: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -35,10 +35,11 @@ impl Copyright {
     pub fn try_parse(
         options: impl YearRangeNormalizationOptions + Copy,
         statement: &str,
-    ) -> Result<Self, nom::error::Error<&str>> {
-        copyright_parsing::copyright_lines(options)(statement)
+    ) -> Result<Self, CopyrightDecompositionError> {
+        let copyright = copyright_parsing::copyright_lines(options)(statement)
             .finish()
-            .map(|(_leftover, parsed)| parsed)
+            .map(|(_leftover, parsed)| parsed)?;
+        Ok(copyright)
     }
 }
 
@@ -66,5 +67,15 @@ impl Display for Copyright {
             }
             Copyright::Complex(s) => write!(f, "{s}"),
         }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("Failed decomposing copyright: {0}")]
+pub struct CopyrightDecompositionError(String);
+
+impl From<nom::error::Error<&str>> for CopyrightDecompositionError {
+    fn from(value: nom::error::Error<&str>) -> Self {
+        CopyrightDecompositionError(value.to_string())
     }
 }

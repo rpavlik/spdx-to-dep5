@@ -35,7 +35,7 @@ impl YearRange {
         self.end
     }
 
-    fn is_single_year(&self) -> bool {
+    pub fn is_single_year(&self) -> bool {
         self.begin == self.end
     }
 
