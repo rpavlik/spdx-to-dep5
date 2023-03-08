@@ -8,19 +8,19 @@ use std::{
     iter::{self, FromIterator},
 };
 
+use crate::{
+    cleanup::{cleanup_copyright_text, StrExt},
+    deb822::dep5::FilesParagraph,
+};
+use atom_table::AtomTable;
+use copyright_statements::{
+    Copyright, CopyrightDecompositionError, DecomposedCopyright, YearRangeCollection,
+    YearRangeNormalizationOptions, YearSpec,
+};
 use derive_more::{From, Into};
 use indextree::{Arena, Node, NodeEdge, NodeId, Traverse};
 use itertools::Itertools;
 use spdx_rs::models::{self, SpdxExpression};
-
-use crate::{
-    atom_table::AtomTable,
-    cleanup::{cleanup_copyright_text, StrExt},
-    copyright::{Copyright, CopyrightDecompositionError, DecomposedCopyright},
-    deb822::dep5::FilesParagraph,
-    raw_year::traits::YearRangeNormalizationOptions,
-    years::{YearRangeCollection, YearSpec},
-};
 
 /// Identifier per `Metadata`
 #[derive(From, Into, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -233,11 +233,11 @@ impl MetadataStore for CopyrightDataTree {
     type CopyrightType = String;
 
     fn get_license_for_id(&self, id: MetadataId) -> Option<&Vec<SpdxExpression>> {
-        self.metadata.get_value(id).map(|m| &m.license)
+        self.metadata.get(id).map(|m| &m.license)
     }
 
     fn get_copyright_text_for_id(&self, id: MetadataId) -> Option<&Self::CopyrightType> {
-        self.metadata.get_value(id).map(|m| &m.copyright_text)
+        self.metadata.get(id).map(|m| &m.copyright_text)
     }
 }
 
@@ -290,11 +290,11 @@ impl MetadataStore for CopyrightDataTree<ParsedMetadata> {
     type CopyrightType = Copyright;
 
     fn get_license_for_id(&self, id: MetadataId) -> Option<&Vec<SpdxExpression>> {
-        self.metadata.get_value(id).map(|m| &m.license)
+        self.metadata.get(id).map(|m| &m.license)
     }
 
     fn get_copyright_text_for_id(&self, id: MetadataId) -> Option<&Self::CopyrightType> {
-        self.metadata.get_value(id).map(|m| &m.copyright)
+        self.metadata.get(id).map(|m| &m.copyright)
     }
 }
 
@@ -303,15 +303,22 @@ impl CopyrightDataTree {
         self,
         options: impl YearRangeNormalizationOptions + Copy,
     ) -> Result<CopyrightDataTree<ParsedMetadata>, CopyrightDecompositionError> {
-        let metadata = self.metadata.try_transform(
-            |metadata| -> Result<ParsedMetadata, CopyrightDecompositionError> {
-                let copyright = Copyright::try_parse(options, &metadata.copyright_text)?;
-                Ok(ParsedMetadata {
-                    license: metadata.license.clone(),
-                    copyright,
-                })
-            },
-        )?;
+        let metadata = self
+            .metadata
+            .try_transform_res(
+                |metadata| -> Result<ParsedMetadata, CopyrightDecompositionError> {
+                    let copyright = Copyright::try_parse(options, &metadata.copyright_text)?;
+                    Ok(ParsedMetadata {
+                        license: metadata.license.clone(),
+                        copyright,
+                    })
+                },
+            )
+            .map_err(|e| {
+                e.as_transform_function_error()
+                    .expect("Our transform should be acceptable")
+                    .clone()
+            })?;
         Ok(CopyrightDataTree {
             tree_arena: self.tree_arena,
             root: self.root,
@@ -484,11 +491,7 @@ pub fn summarize_metadata(
     });
     let unique_metadata = all_child_metadata.unique();
     let _parsed: HashMap<MetadataId, Copyright> = unique_metadata
-        .flat_map(|metadata_id| {
-            tree.metadata
-                .get_value(metadata_id)
-                .map(|d| (metadata_id, d))
-        })
+        .flat_map(|metadata_id| tree.metadata.get(metadata_id).map(|d| (metadata_id, d)))
         .map(|(metadata_id, metadata)| {
             (
                 metadata_id,
@@ -507,7 +510,7 @@ pub fn make_paragraphs(cdt: CopyrightDataTree) -> impl Iterator<Item = FilesPara
     let grouped = NodeIdsWithMetadata::new(&cdt).group_by(|&id| cdt.get_metadata_id(id));
     for (key, grouped_ids) in &grouped {
         let metadata_id = key.unwrap();
-        if let Some(metadata) = cdt.metadata.get_value(metadata_id) {
+        if let Some(metadata) = cdt.metadata.get(metadata_id) {
             let files = grouped_ids
                 .filter_map(|id| cdt.get_pattern(id))
                 .sorted_unstable()

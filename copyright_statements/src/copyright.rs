@@ -70,7 +70,7 @@ impl Display for Copyright {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 #[error("Failed decomposing copyright: {0}")]
 pub struct CopyrightDecompositionError(String);
 
