@@ -43,7 +43,6 @@ struct Args {
     #[arg(short, long)]
     omit_no_copyright: bool,
 
-
     /// Should allow the century to be guessed entirely when there is no four-digit year
     /// suitably close to imply a century?
     #[arg(default_value = "false")]
@@ -91,7 +90,7 @@ fn main() -> Result<(), spdx_rs::error::SpdxError> {
     let doc = spdx_from_tag_value(&file)?;
 
     // Omit or normalize the "NONE" text that REUSE tends to put into SPDX files.
-    let mut spdx_information: Vec<_> = if args.omit_no_copyright {
+    let spdx_information: Vec<_> = if args.omit_no_copyright {
         doc.file_information
             .into_iter()
             .filter(|f| f.copyright_text != "NONE")

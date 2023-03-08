@@ -99,10 +99,7 @@ mod tests {
         RawYear,
     };
 
-    use super::{
-        four_digit_year, two_digit_year, year, year_range, year_range_22, year_range_24,
-        year_range_42, year_range_44,
-    };
+    use super::{four_digit_year, two_digit_year, year, year_range, year_range_44};
 
     #[test]
     fn parse_year() {

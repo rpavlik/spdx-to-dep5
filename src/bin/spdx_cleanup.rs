@@ -1,21 +1,13 @@
 // Copyright 2021-2023, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
-use clap::{crate_authors, crate_description, ArgGroup, Parser};
-use itertools::Itertools;
+use clap::{crate_authors, crate_description, Parser};
+
 use spdx_rs::{
     models::{FileInformation, SPDX},
     parsers::spdx_from_tag_value,
 };
-use spdx_to_dep5::{
-    copyright::Copyright,
-    deb822::{
-        control_file::{Paragraph, Paragraphs},
-        dep5::HeaderParagraph,
-    },
-    raw_year::YearRangeNormalization,
-    tree::{make_paragraphs, CopyrightDataTree},
-};
+use spdx_to_dep5::{copyright::Copyright, raw_year::YearRangeNormalization};
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
@@ -86,7 +78,7 @@ fn main() -> Result<(), spdx_rs::error::SpdxError> {
             Err(_) => f,
         })
         .collect();
-    let doc = SPDX {
+    let _doc = SPDX {
         file_information: spdx_information,
         ..doc
     };

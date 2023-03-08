@@ -4,7 +4,7 @@
 //
 // Author: Ryan Pavlik <ryan.pavlik@collabora.com>
 
-use std::{collections::HashMap, error::Error, fmt::Debug, hash::Hash, iter::FromIterator};
+use std::{collections::HashMap, fmt::Debug, hash::Hash};
 use typed_index_collections::TiVec;
 
 /// A data structure that lets you use strongly typed indices/keys instead
@@ -69,7 +69,10 @@ where
     }
 
     /// Apply a function to all values
-    pub(crate) fn transform<U: Hash + Eq + Clone>(&self, mut f: impl FnMut(&T) -> U) -> AtomTable<U, I>
+    pub(crate) fn transform<U: Hash + Eq + Clone>(
+        &self,
+        mut f: impl FnMut(&T) -> U,
+    ) -> AtomTable<U, I>
     where
         I: Eq + Debug,
     {

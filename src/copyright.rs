@@ -65,7 +65,7 @@ impl Display for Copyright {
                     v.iter().map(DecomposedCopyright::to_string).join("\n")
                 )
             }
-            Copyright::Complex(s) => write!(f, "{}", s),
+            Copyright::Complex(s) => write!(f, "{s}"),
         }
     }
 }

@@ -107,11 +107,7 @@ mod tests {
         raw_year::{options::YearRangeNormalization, traits::SetYearRangeNormalizationOptions},
         years::{Year, YearSpec},
     };
-    use nom::{
-        combinator::{all_consuming, eof},
-        sequence::terminated,
-        Finish, IResult,
-    };
+    use nom::{combinator::all_consuming, Finish};
 
     #[test]
     fn parse_year_spec() {
@@ -153,7 +149,7 @@ mod tests {
 
     #[test]
     fn parse_year_spec_vec() {
-        let opt = || YearRangeNormalization::default();
+        let opt = YearRangeNormalization::default;
 
         assert_eq!(
             all_consuming(year_spec_vec(opt()))("2022").unwrap().1,

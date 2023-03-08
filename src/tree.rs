@@ -1,9 +1,9 @@
-// Copyright 2021-2022, Collabora, Ltd.
+// Copyright 2021-2023, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use std::{
-    collections::{BinaryHeap, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     hash::Hash,
     iter::{self, FromIterator},
 };
@@ -12,7 +12,6 @@ use derive_more::{From, Into};
 use indextree::{Arena, Node, NodeEdge, NodeId, Traverse};
 use itertools::Itertools;
 use spdx_rs::models::{self, SimpleExpression};
-use typed_index_collections::TiVec;
 
 use crate::{
     atom_table::AtomTable,
@@ -20,7 +19,7 @@ use crate::{
     copyright::{Copyright, CopyrightDecompositionError, DecomposedCopyright},
     deb822::dep5::FilesParagraph,
     raw_year::traits::YearRangeNormalizationOptions,
-    years::{coalesce_years, YearRange, YearRangeCollection, YearSpec},
+    years::{YearRangeCollection, YearSpec},
 };
 
 /// Identifier per `Metadata`
@@ -375,20 +374,11 @@ struct SummarizerOutput {
     metadata_ids: HashSet<MetadataId>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 struct SubtreeSummarizer {
     ranges_per_holder: HashMap<String, YearRangeCollection>,
     license_and_holders_metadata_ids: HashMap<LicenseAndHolders, HashSet<MetadataId>>,
     metadata_id_usage_count: UsageCount<MetadataId>,
-}
-impl Default for SubtreeSummarizer {
-    fn default() -> Self {
-        Self {
-            ranges_per_holder: Default::default(),
-            license_and_holders_metadata_ids: Default::default(),
-            metadata_id_usage_count: Default::default(),
-        }
-    }
 }
 
 impl SubtreeSummarizer {
@@ -492,8 +482,8 @@ pub fn summarize_metadata(
             .get(child_id)
             .and_then(|node| node.get().metadata)
     });
-    let mut unique_metadata = all_child_metadata.unique();
-    let parsed: HashMap<MetadataId, Copyright> = unique_metadata
+    let unique_metadata = all_child_metadata.unique();
+    let _parsed: HashMap<MetadataId, Copyright> = unique_metadata
         .flat_map(|metadata_id| {
             tree.metadata
                 .get_value(metadata_id)

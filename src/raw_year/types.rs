@@ -194,7 +194,7 @@ impl RawYearRange for (FourDigitYear, FourDigitYear) {
 impl ConfigurableRawYearRange for (FourDigitYear, FourDigitYear) {
     fn try_to_four_digit_range(
         &self,
-        options: impl YearRangeNormalizationOptions,
+        _options: impl YearRangeNormalizationOptions,
     ) -> Option<(FourDigitYear, FourDigitYear)> {
         // we are already cool
         Some(*self)
