@@ -12,9 +12,10 @@ version = "0.5.0"
 
 [dependencies]
 clap = {version = "4.0", features = ["derive", "cargo"]}
+copyright_statements = {version = "=0.5.0", path = "copyright_statements"}
 derive_more = "0.99"
-env_logger = "0.9"
-indextree = "4.4"
+env_logger = "0.10"
+indextree = "4.5"
 itertools = "0.10"
 lazy_static = "1.4"
 log = "0.4"
@@ -23,3 +24,9 @@ regex = "1.6"
 spdx-rs = "0.5.0"
 thiserror = "1.0"
 typed-index-collections = "3.1"
+atom_table = "1.0.0"
+
+[workspace]
+members = [
+  "copyright_statements",
+]

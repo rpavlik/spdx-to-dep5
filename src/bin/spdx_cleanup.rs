@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 use clap::{crate_authors, crate_description, Parser};
 
+use copyright_statements::{Copyright, YearRangeNormalization};
 use spdx_rs::{
     models::{FileInformation, SPDX},
     parsers::spdx_from_tag_value,
 };
-use spdx_to_dep5::{copyright::Copyright, raw_year::YearRangeNormalization};
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
