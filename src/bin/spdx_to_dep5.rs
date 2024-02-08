@@ -62,6 +62,13 @@ fn filter_files(
     }
 }
 
+fn is_copyright_text_empty(fi: &FileInformation) -> bool {
+    match &fi.copyright_text {
+        None => true,
+        Some(v) => v == "None",
+    }
+}
+
 fn main() -> Result<(), spdx_rs::error::SpdxError> {
     env_logger::init();
     let args = Args::parse();
@@ -77,15 +84,15 @@ fn main() -> Result<(), spdx_rs::error::SpdxError> {
     let spdx_information: Vec<_> = if args.omit_no_copyright {
         doc.file_information
             .into_iter()
-            .filter(|f| f.copyright_text != "NONE")
+            .filter(|f| !is_copyright_text_empty(f))
             .collect()
     } else {
         doc.file_information
             .into_iter()
             .map(|f| {
-                if f.copyright_text == "NONE" {
+                if is_copyright_text_empty(&f) {
                     let mut f = f;
-                    f.copyright_text = "NOASSERTION".to_string();
+                    f.copyright_text = None;
                     f
                 } else {
                     f
@@ -108,7 +115,6 @@ fn main() -> Result<(), spdx_rs::error::SpdxError> {
     println!("{}", paragraphs.join("\n\n"));
     Ok(())
 }
-
 
 #[test]
 fn verify_cli() {

@@ -447,9 +447,9 @@ dependencies = [
 
 [[package]]
 name = "spdx-rs"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b1ec09829bf2d82c175c121b20de11ffab2def83bd55979002099b1f9956c9b"
+checksum = "74f1f9cfa402cd27dd022fd1943f0f969b10dda75d5e50e3a78ccee9c0188e2a"
 dependencies = [
  "chrono",
  "log",
