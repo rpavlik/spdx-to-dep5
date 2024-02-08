@@ -436,8 +436,7 @@ dependencies = [
 [[package]]
 name = "spdx-expression"
 version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53d7ac03c67c572d85049d6db815e20a4a19b41b3d5cca732ac582342021ad77"
+source = "git+https://github.com/rpavlik/spdx-expression.git?branch=hashable-expressions#b83c403cfb4a3a8b7918a12bd865eccb52692ad9"
 dependencies = [
  "nom",
  "serde",
@@ -447,9 +446,9 @@ dependencies = [
 
 [[package]]
 name = "spdx-rs"
-version = "0.5.3"
+version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74f1f9cfa402cd27dd022fd1943f0f969b10dda75d5e50e3a78ccee9c0188e2a"
+checksum = "990870190ec8d8c64ba66e4a6746243d6e57d99353991e0e6092334833f429b1"
 dependencies = [
  "chrono",
  "log",

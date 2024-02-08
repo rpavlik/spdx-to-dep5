@@ -7,7 +7,7 @@ use std::{collections::HashMap, hash::Hash, iter::FromIterator};
 use derive_more::{From, Into};
 use indextree::{Arena, Node, NodeEdge, NodeId, Traverse};
 use itertools::Itertools;
-use spdx_rs::models::{self, SimpleExpression};
+use spdx_rs::models::{self, SpdxExpression};
 use typed_index_collections::TiVec;
 
 use crate::{
@@ -23,7 +23,7 @@ struct MetadataId(usize);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Metadata {
     pub copyright_text: String,
-    pub license: Vec<SimpleExpression>,
+    pub license: Vec<SpdxExpression>,
 }
 
 /// A part of a path, which might have a Metadata (copyright + license) associated with it, by ID.
