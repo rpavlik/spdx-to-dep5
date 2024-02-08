@@ -8,5 +8,6 @@ venv/
 .*
 !.gitignore
 !.reuse
+!.mailmap
 
 /target

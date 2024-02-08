@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: CC0-1.0
 
 [package]
-authors = ["Ryan Pavlik <ryan.pavlik@collabora.com>"]
+authors = ["Rylie Pavlik <rylie.pavlik@collabora.com>"]
 description = "A tool to help in Debian package maintenance, converting SPDX tag-value files, often extracted by REUSE, into a basic debian/copyright file."
 edition = "2018"
 name = "spdx-to-dep5"
