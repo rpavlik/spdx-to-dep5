@@ -6,7 +6,7 @@ authors = ["Rylie Pavlik <rylie.pavlik@collabora.com>"]
 description = "A tool to help in Debian package maintenance, converting SPDX tag-value files, often extracted by REUSE, into a basic debian/copyright file."
 edition = "2018"
 name = "spdx-to-dep5"
-version = "0.5.0"
+version = "0.6.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -463,7 +463,7 @@ dependencies = [
 
 [[package]]
 name = "spdx-to-dep5"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "clap",
  "derive_more",
