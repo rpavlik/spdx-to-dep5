@@ -65,7 +65,7 @@ fn filter_files(
 fn is_copyright_text_empty(fi: &FileInformation) -> bool {
     match &fi.copyright_text {
         None => true,
-        Some(v) => v == "None",
+        Some(v) => v == "NONE",
     }
 }
 
