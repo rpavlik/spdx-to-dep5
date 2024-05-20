@@ -15,6 +15,18 @@ pub struct DecomposedCopyright {
     pub holder: String,
 }
 
+impl DecomposedCopyright {
+    fn contains(&self, other: &DecomposedCopyright) -> bool {
+        self.holder.trim() == other.holder.trim()
+            && other.years.iter().all(|other_spec| {
+                // all of the other copyright's ranges must be included in some of our specs
+                self.years
+                    .iter()
+                    .any(|self_spec| self_spec.contains(other_spec))
+            })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Copyright {
     Decomposable(DecomposedCopyright),
@@ -31,6 +43,10 @@ impl DecomposedCopyright {
     }
 }
 
+fn vec_contains_decomposed(m: &[DecomposedCopyright], d2: &DecomposedCopyright) -> bool {
+    m.iter().any(|d| d.contains(d2))
+}
+
 impl Copyright {
     pub fn try_parse(
         options: impl YearRangeNormalizationOptions + Copy,
@@ -40,6 +56,28 @@ impl Copyright {
             .finish()
             .map(|(_leftover, parsed)| parsed)?;
         Ok(copyright)
+    }
+
+    pub fn contains(&self, other: &Copyright) -> bool {
+        match self {
+            Copyright::Decomposable(d) => match other {
+                Copyright::Decomposable(d2) => d.contains(d2),
+                Copyright::MultilineDecomposable(m2) => m2.iter().all(|d2| d.contains(d2)),
+                Copyright::Complex(_) => false,
+            },
+            Copyright::MultilineDecomposable(m) => match other {
+                Copyright::Decomposable(d2) => vec_contains_decomposed(m, d2),
+                Copyright::MultilineDecomposable(m2) => {
+                    m2.iter().all(|d2| vec_contains_decomposed(m, d2))
+                }
+                Copyright::Complex(_) => false,
+            },
+            Copyright::Complex(c) => match other {
+                Copyright::Decomposable(_) => false,
+                Copyright::MultilineDecomposable(_) => false,
+                Copyright::Complex(c2) => c == c2,
+            },
+        }
     }
 }
 
