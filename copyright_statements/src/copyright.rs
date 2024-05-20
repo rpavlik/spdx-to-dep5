@@ -41,6 +41,12 @@ impl DecomposedCopyright {
             holder: holder.trim().to_string(),
         }
     }
+    pub fn new_from_single_yearspec(yearspec: &YearSpec, holder: &str) -> Self {
+        Self {
+            years: vec![yearspec.clone()],
+            holder: holder.trim().to_string(),
+        }
+    }
 }
 
 fn vec_contains_decomposed(m: &[DecomposedCopyright], d2: &DecomposedCopyright) -> bool {
