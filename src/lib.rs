@@ -3,5 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 pub mod cleanup;
+pub mod cli_help;
 pub mod deb822;
 pub mod tree;
