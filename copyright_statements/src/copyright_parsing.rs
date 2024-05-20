@@ -102,7 +102,7 @@ pub(crate) fn copyright_lines(
 
 #[cfg(test)]
 mod tests {
-    use super::{year_spec, year_spec_vec};
+    use super::*;
     use crate::{
         raw_year::{options::YearRangeNormalization, traits::SetYearRangeNormalizationOptions},
         years::{Year, YearSpec},
@@ -219,6 +219,26 @@ mod tests {
                 YearSpec::single(1996),
                 YearSpec::range(Year(1997), Year(2001))
             ]
+        );
+    }
+
+    #[test]
+    fn test_line() {
+        let opt = YearRangeNormalization::default;
+        assert_eq!(
+            all_consuming(copyright_line(opt()))("Copyright 2024, Rylie Pavlik")
+                .finish()
+                .unwrap()
+                .1,
+            DecomposedCopyright::new_from_single_yearspec(&YearSpec::single(2024), "Rylie Pavlik")
+        );
+
+        assert_eq!(
+            all_consuming(copyright_line(opt()))("2024, Rylie Pavlik")
+                .finish()
+                .unwrap()
+                .1,
+            DecomposedCopyright::new_from_single_yearspec(&YearSpec::single(2024), "Rylie Pavlik")
         );
     }
 }
