@@ -85,6 +85,16 @@ impl Copyright {
             },
         }
     }
+
+    #[cfg(test)]
+    fn is_complex(&self) -> bool {
+        matches!(self, Copyright::Complex(_))
+    }
+
+    #[cfg(test)]
+    fn is_multiline_decomposable(&self) -> bool {
+        matches!(self, Copyright::MultilineDecomposable(_))
+    }
 }
 
 impl Display for DecomposedCopyright {
@@ -121,5 +131,74 @@ pub struct CopyrightDecompositionError(String);
 impl From<nom::error::Error<&str>> for CopyrightDecompositionError {
     fn from(value: nom::error::Error<&str>) -> Self {
         CopyrightDecompositionError(value.to_string())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{Copyright, YearRangeNormalization};
+
+    #[test]
+    fn contains() {
+        let two_liner = Copyright::try_parse(
+            YearRangeNormalization::default(),
+            "Copyright 2024, Rylie Pavlik
+        Copyright 2020, 2022-2024, Collabora, Ltd.",
+        )
+        .unwrap();
+        assert!(two_liner.is_multiline_decomposable());
+        assert!(!two_liner.is_complex());
+
+        let rylie_2024 = Copyright::try_parse(
+            YearRangeNormalization::default(),
+            "Copyright 2024, Rylie Pavlik",
+        )
+        .unwrap();
+        assert!(!rylie_2024.is_multiline_decomposable());
+        assert!(!rylie_2024.is_complex());
+
+        assert!(two_liner.contains(&rylie_2024));
+
+        let collabora_year_and_range = Copyright::try_parse(
+            YearRangeNormalization::default(),
+            "Copyright 2020, 2022-2024, Collabora, Ltd.",
+        )
+        .unwrap();
+        assert!(two_liner.contains(&collabora_year_and_range));
+
+        let collabora_2020 = Copyright::try_parse(
+            YearRangeNormalization::default(),
+            "Copyright 2020, Collabora, Ltd.",
+        )
+        .unwrap();
+        assert!(two_liner.contains(&collabora_2020));
+
+        let collabora_2021 = Copyright::try_parse(
+            YearRangeNormalization::default(),
+            "Copyright 2021, Collabora, Ltd.",
+        )
+        .unwrap();
+        assert!(!two_liner.contains(&collabora_2021));
+
+        let collabora_2022_thru_2024 = Copyright::try_parse(
+            YearRangeNormalization::default(),
+            "Copyright 2022-2024, Collabora, Ltd.",
+        )
+        .unwrap();
+        assert!(two_liner.contains(&collabora_2022_thru_2024));
+
+        let collabora_2022_thru_2023 = Copyright::try_parse(
+            YearRangeNormalization::default(),
+            "Copyright 2022-2023, Collabora, Ltd.",
+        )
+        .unwrap();
+        assert!(two_liner.contains(&collabora_2022_thru_2023));
+
+        let collabora_2021_thru_2023 = Copyright::try_parse(
+            YearRangeNormalization::default(),
+            "Copyright 2021-2023, Collabora, Ltd.",
+        )
+        .unwrap();
+        assert!(!two_liner.contains(&collabora_2021_thru_2023));
     }
 }
