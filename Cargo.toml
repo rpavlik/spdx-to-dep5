@@ -29,7 +29,7 @@ atom_table = "1.0.0"
 
 [patch.crates-io]
 spdx-expression = { git = "https://github.com/rpavlik/spdx-expression.git", branch = "hashable-expressions" }
-
+spdx-rs = { git = "https://github.com/rpavlik/spdx-rs.git", branch = "fix-date" }
 # spdx-expression = { path = "../third-party/spdx-expression" }
 
 [workspace]
