@@ -75,7 +75,7 @@ fn main() -> Result<(), spdx_rs::error::SpdxError> {
 
     // load SPDX file
     let filename = args.input;
-    eprintln!("Opening {}", filename);
+    eprintln!("Opening {filename}");
 
     let file = std::fs::read_to_string(filename)?;
     let doc = spdx_from_tag_value(&file)?;
