@@ -14,7 +14,7 @@ use spdx_to_dep5::{
     cleanup::cleanup_copyright_text,
     cli_help::omit_or_normalize_none,
     deb822::{control_file::Paragraphs, dep5::FilesParagraph},
-    tree::{make_paragraphs, CopyrightDataTree},
+    tree::{make_paragraphs, CopyrightDataTree, FileAndEmitState},
 };
 
 #[derive(Parser, Debug)]
@@ -190,11 +190,14 @@ fn main() -> Result<(), anyhow::Error> {
     };
 
     // Turn entries that do not match the wildcard into tree, and identify uniformly-licensed subtrees
-    let data_tree: CopyrightDataTree = spdx_information
+    let mut data_tree: CopyrightDataTree = spdx_information
         .into_iter()
-        .filter(|fi| !matches_wildcards(opts, &wildcard_entries, fi))
+        .map(|fi| {
+            let matches = matches_wildcards(opts, &wildcard_entries, &fi);
+            FileAndEmitState::new(fi, matches)
+        })
         .collect();
-    // data_tree.propagate_metadata();
+    data_tree.propagate_metadata();
 
     // These are the ones from TOML
     let explicit_paragraphs = wildcard_entries.into_iter().map(|w| {

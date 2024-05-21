@@ -46,12 +46,14 @@ trait MetadataStore {
 struct Element {
     path_segment: String,
     metadata: Option<MetadataId>,
+    emitted: bool,
 }
 impl Element {
     fn new(path_segment: &str) -> Self {
         Self {
             path_segment: path_segment.to_string(),
             metadata: None,
+            emitted: false,
         }
     }
 }
@@ -103,6 +105,20 @@ fn skip_until_end_of_id(traversal: &mut Traverse<Element>, id: NodeId) {
     }
 }
 
+pub struct FileAndEmitState {
+    file_info: models::FileInformation,
+    emit_state: bool,
+}
+
+impl FileAndEmitState {
+    pub fn new(file_info: models::FileInformation, emit_state: bool) -> Self {
+        Self {
+            file_info,
+            emit_state,
+        }
+    }
+}
+
 /// Stores license and copyright metadata and an associated tree data structure corresponding to the file system tree.
 #[derive(Debug)]
 pub struct CopyrightDataTree<T = Metadata> {
@@ -118,6 +134,15 @@ impl Extend<models::FileInformation> for CopyrightDataTree {
         }
     }
 }
+
+impl Extend<FileAndEmitState> for CopyrightDataTree {
+    fn extend<T: IntoIterator<Item = FileAndEmitState>>(&mut self, iter: T) {
+        for item in iter {
+            self.accumulate_with_emit_state(&item.file_info, item.emit_state);
+        }
+    }
+}
+
 impl<T> CopyrightDataTree<T> {
     fn set_metadata_id_for_node(&mut self, id: NodeId, metadata_id: MetadataId) {
         if let Some(node) = self.tree_arena.get_mut(id) {
@@ -174,6 +199,13 @@ impl<T> CopyrightDataTree<T> {
         })
     }
 
+    fn get_emitted(&self, id: NodeId) -> bool {
+        self.tree_arena
+            .get(id)
+            .map(|elt| elt.get().emitted)
+            .unwrap_or_default()
+    }
+
     fn get_metadata_id(&self, id: NodeId) -> Option<MetadataId> {
         self.tree_arena.get(id).and_then(|node| node.get().metadata)
     }
@@ -216,6 +248,12 @@ impl<T: Clone + Hash + Eq> CopyrightDataTree<T> {
 impl CopyrightDataTree<Metadata> {
     /// Add a single element of SPDX FileInformation to the tree, after cleanup and processing.
     fn accumulate(&mut self, item: &models::FileInformation) {
+        self.accumulate_with_emit_state(item, false)
+    }
+
+    /// Add a single element of SPDX FileInformation to the tree, after cleanup and processing,
+    /// with the state of whether it has been emitted also recorded.
+    fn accumulate_with_emit_state(&mut self, item: &models::FileInformation, emitted: bool) {
         let license = item.license_information_in_file.clone();
         let copyright_text = cleanup_copyright_text(&item.copyright_text).join("\n");
         let metadata_id = self.find_or_insert_metadata(Metadata {
@@ -226,6 +264,7 @@ impl CopyrightDataTree<Metadata> {
         let id = find_or_create_node(&mut self.tree_arena, self.root, filename);
         let node = self.tree_arena.get_mut(id).unwrap();
         node.get_mut().metadata = Some(metadata_id);
+        node.get_mut().emitted = emitted;
     }
 }
 
@@ -243,6 +282,14 @@ impl MetadataStore for CopyrightDataTree {
 
 impl FromIterator<models::FileInformation> for CopyrightDataTree {
     fn from_iter<T: IntoIterator<Item = models::FileInformation>>(iter: T) -> Self {
+        let mut ret = Self::new();
+        ret.extend(iter);
+        ret
+    }
+}
+
+impl FromIterator<FileAndEmitState> for CopyrightDataTree {
+    fn from_iter<T: IntoIterator<Item = FileAndEmitState>>(iter: T) -> Self {
         let mut ret = Self::new();
         ret.extend(iter);
         ret
@@ -512,7 +559,13 @@ pub fn make_paragraphs(cdt: CopyrightDataTree) -> impl Iterator<Item = FilesPara
         let metadata_id = key.unwrap();
         if let Some(metadata) = cdt.metadata.get(metadata_id) {
             let files = grouped_ids
-                .filter_map(|id| cdt.get_pattern(id))
+                .filter_map(|id| {
+                    if cdt.get_emitted(id) {
+                        None
+                    } else {
+                        cdt.get_pattern(id)
+                    }
+                })
                 .sorted_unstable()
                 .map(|path| process_file_pattern(&path))
                 .collect_vec()
