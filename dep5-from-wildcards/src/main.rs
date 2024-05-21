@@ -52,7 +52,7 @@ struct Args {
 /// Corresponds to a `[[wildcards]]` entry in the TOML file.
 #[derive(Deserialize)]
 struct RawWildcardEntry {
-    wildcard: String,
+    patterns: Vec<String>,
     license: String,
     copyright: String,
     comment: Option<String>,
@@ -66,7 +66,7 @@ struct WildcardsFile {
 
 /// This is the fully-processed version of `RawWildcardEntry`.
 struct WildcardEntry {
-    wildcard: Pattern,
+    patterns: Vec<Pattern>,
     license: SpdxExpression,
     copyright: Copyright,
     comment: Option<String>,
@@ -78,11 +78,15 @@ impl WildcardEntry {
         options: YearRangeNormalization,
         raw: RawWildcardEntry,
     ) -> Result<Self, anyhow::Error> {
-        let wildcard = Pattern::new(&raw.wildcard)?;
+        let wildcard: Vec<Pattern> = raw
+            .patterns
+            .iter()
+            .map(|w| Pattern::new(w))
+            .collect::<Result<Vec<_>, _>>()?;
         let license = SpdxExpression::parse(&raw.license)?;
         let copyright = Copyright::try_parse(options, &raw.copyright)?;
         Ok(WildcardEntry {
-            wildcard,
+            patterns: wildcard,
             license,
             copyright,
             comment: raw.comment,
@@ -92,7 +96,7 @@ impl WildcardEntry {
     /// Compare a `WildcardEntry` with the filename, license, and copyright data for a given file.
     /// Returns true if it matches.
     fn matches(&self, filename: &str, license: &SpdxExpression, copyright: &Copyright) -> bool {
-        self.wildcard.matches(filename)
+        self.patterns.iter().any(|p| p.matches(filename))
             && *license == self.license
             && self.copyright.contains(copyright)
     }
@@ -101,7 +105,12 @@ impl WildcardEntry {
 /// Convert a `WildcardEntry` into a `FilesParagraph` to output for the `copyright` file
 impl From<WildcardEntry> for FilesParagraph {
     fn from(val: WildcardEntry) -> Self {
-        let files = val.wildcard.to_string().into();
+        let files = val
+            .patterns
+            .iter()
+            .map(ToString::to_string)
+            .join("\n")
+            .into();
         let license = val.license.to_string().into();
         let copyright = val.copyright.to_string().into();
         FilesParagraph {

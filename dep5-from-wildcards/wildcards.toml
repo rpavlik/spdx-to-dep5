@@ -6,6 +6,6 @@
 # You can have as many of these [[wildcards]] sections as you want: note that
 # they are parsed in order.
 [[wildcards]]
-wildcard = "*"
+patterns = ["*"]
 license = "Apache-2.0 OR MIT"
 copyright = "2021-2024, Collabora, Ltd."
