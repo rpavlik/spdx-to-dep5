@@ -1,13 +1,10 @@
-// Copyright 2021-2023, Collabora, Ltd.
+// Copyright 2021-2024, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 use clap::{crate_authors, crate_description, Parser};
 
-use copyright_statements::{Copyright, YearRangeNormalization};
-use spdx_rs::{
-    models::{FileInformation, SPDX},
-    parsers::spdx_from_tag_value,
-};
+use copyright_statements::YearRangeNormalization;
+use spdx_rs::{models::SPDX, parsers::spdx_from_tag_value};
 use spdx_to_dep5::cli_help::omit_or_normalize_none;
 use std::{
     collections::{HashMap, HashSet},
@@ -57,7 +54,7 @@ fn main() -> Result<(), spdx_rs::error::SpdxError> {
     let file = std::fs::read_to_string(filename)?;
     let doc = spdx_from_tag_value(&file)?;
 
-    let opts = YearRangeNormalization {
+    let _opts = YearRangeNormalization {
         allow_century_guess: args.allow_century_guess,
         allow_assuming_y2k_span: args.allow_assuming_y2k_span,
         allow_mixed_size_implied_century_rollover: args.allow_mixed_size_implied_century_rollover,

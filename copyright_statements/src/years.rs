@@ -49,7 +49,7 @@ impl YearRange {
 
     fn can_add(&self, new_year: &Year) -> bool {
         // within the range
-        self.contains_year(&new_year)
+        self.contains_year(new_year)
             || (*new_year == Year(self.end.0 + 1))// appends one year to the end
             || (*new_year == Year(self.begin.0 - 1)) // appends one year to the beginning
     }

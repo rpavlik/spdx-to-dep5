@@ -49,6 +49,7 @@ struct Args {
     omit_no_copyright: bool,
 }
 
+/// Corresponds to a `[[wildcards]]` entry in the TOML file.
 #[derive(Deserialize)]
 struct RawWildcardEntry {
     wildcard: String,
@@ -57,11 +58,13 @@ struct RawWildcardEntry {
     comment: Option<String>,
 }
 
+/// Corresponds to the entire TOML file.
 #[derive(Deserialize)]
 struct WildcardsFile {
     wildcards: Vec<RawWildcardEntry>,
 }
 
+/// This is the fully-processed version of `RawWildcardEntry`.
 struct WildcardEntry {
     wildcard: Pattern,
     license: SpdxExpression,
@@ -70,6 +73,7 @@ struct WildcardEntry {
 }
 
 impl WildcardEntry {
+    /// Try to turn a `RawWildcardEntry` into a `WildcardEntry`
     fn try_parse(
         options: YearRangeNormalization,
         raw: RawWildcardEntry,
@@ -85,6 +89,8 @@ impl WildcardEntry {
         })
     }
 
+    /// Compare a `WildcardEntry` with the filename, license, and copyright data for a given file.
+    /// Returns true if it matches.
     fn matches(&self, filename: &str, license: &SpdxExpression, copyright: &Copyright) -> bool {
         self.wildcard.matches(filename)
             && *license == self.license
@@ -92,6 +98,7 @@ impl WildcardEntry {
     }
 }
 
+/// Convert a `WildcardEntry` into a `FilesParagraph` to output for the `copyright` file
 impl From<WildcardEntry> for FilesParagraph {
     fn from(val: WildcardEntry) -> Self {
         let files = val.wildcard.to_string().into();
@@ -106,7 +113,8 @@ impl From<WildcardEntry> for FilesParagraph {
     }
 }
 
-fn info_in_file_to_expression(license_info_in_file: &Vec<SpdxExpression>) -> SpdxExpression {
+/// Turn the expressions in the file into a OR expression.
+fn info_in_file_to_expression(license_info_in_file: &[SpdxExpression]) -> SpdxExpression {
     let s = license_info_in_file
         .iter()
         // .map(|e| format!("({})", e))
@@ -116,13 +124,15 @@ fn info_in_file_to_expression(license_info_in_file: &Vec<SpdxExpression>) -> Spd
     if let Ok(e) = SpdxExpression::parse(&s) {
         e
     } else {
+        // TODO this is a fallback in case of error
         license_info_in_file.first().cloned().unwrap_or_default()
     }
 }
 
+/// Compare a file's information against a collection of wildcards
 fn matches_wildcards(
     options: YearRangeNormalization,
-    wildcards: &Vec<WildcardEntry>,
+    wildcards: &[WildcardEntry],
     item: &FileInformation,
 ) -> bool {
     let license_to_match = item
@@ -164,6 +174,7 @@ fn main() -> Result<(), anyhow::Error> {
         allow_assuming_y2k_span: args.allow_assuming_y2k_span,
         allow_mixed_size_implied_century_rollover: args.allow_mixed_size_implied_century_rollover,
     };
+
     // load SPDX file
     let filename = args.spdx_input;
     eprintln!("Opening {filename}");
