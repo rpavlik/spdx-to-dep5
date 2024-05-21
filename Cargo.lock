@@ -182,11 +182,11 @@ checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "copyright_statements"
-version = "0.5.0"
+version = "0.7.0"
 dependencies = [
  "derive_more",
  "indextree",
- "itertools 0.10.5",
+ "itertools",
  "log",
  "nom",
  "thiserror",
@@ -201,14 +201,14 @@ checksum = "06ea2b9bc92be3c2baa9334a323ebca2d6f074ff852cd1d7b11064035cd3868f"
 
 [[package]]
 name = "dep5-from-wildcards"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "clap",
  "copyright_statements",
  "env_logger",
  "glob",
- "itertools 0.13.0",
+ "itertools",
  "serde",
  "spdx-rs",
  "spdx-to-dep5",
@@ -348,24 +348,6 @@ name = "is_terminal_polyfill"
 version = "1.70.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8478577c03552c21db0e2724ffb8986a5ce7af88107e6be5d2ee6e158c12800"
-
-[[package]]
-name = "itertools"
-version = "0.10.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
-dependencies = [
- "either",
-]
 
 [[package]]
 name = "itertools"
@@ -557,7 +539,7 @@ dependencies = [
 [[package]]
 name = "spdx-rs"
 version = "0.5.5"
-source = "git+https://github.com/rpavlik/spdx-rs.git?branch=fix-date#092d2394597147f42b28c9fbf16fcdc927f0e691"
+source = "git+https://github.com/rpavlik/spdx-rs.git?branch=fix-date#e6c2465ddcc74220f3ed75bd8ff4f77d732c5f3c"
 dependencies = [
  "chrono",
  "log",
@@ -571,7 +553,7 @@ dependencies = [
 
 [[package]]
 name = "spdx-to-dep5"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "atom_table",
  "clap",
@@ -579,7 +561,7 @@ dependencies = [
  "derive_more",
  "env_logger",
  "indextree",
- "itertools 0.12.1",
+ "itertools",
  "lazy_static",
  "log",
  "nom",
