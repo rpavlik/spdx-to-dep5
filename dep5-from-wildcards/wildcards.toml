@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2024, Collabora, Ltd.
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# This is a sample of the "wildcards" toml file for "dep5-from-wildcards".
+# You can have as many of these [[wildcards]] sections as you want: note that
+# they are parsed in order.
+[[wildcards]]
+wildcard = "*"
+license = "Apache-2.0 OR MIT"
+copyright = "2021-2024, Collabora, Ltd."
