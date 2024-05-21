@@ -5,6 +5,7 @@ use clap::{crate_authors, crate_description, ArgGroup, Parser};
 use itertools::Itertools;
 use spdx_rs::{models::FileInformation, parsers::spdx_from_tag_value};
 use spdx_to_dep5::{
+    cli_help::omit_or_normalize_none,
     deb822::{
         control_file::{Paragraph, Paragraphs},
         dep5::HeaderParagraph,
@@ -78,13 +79,6 @@ fn filter_files(
     }
 }
 
-fn is_copyright_text_empty(fi: &FileInformation) -> bool {
-    match &fi.copyright_text {
-        None => true,
-        Some(v) => v == "NONE",
-    }
-}
-
 fn main() -> Result<(), spdx_rs::error::SpdxError> {
     env_logger::init();
     let args = Args::parse();
@@ -97,25 +91,8 @@ fn main() -> Result<(), spdx_rs::error::SpdxError> {
     let doc = spdx_from_tag_value(&file)?;
 
     // Omit or normalize the "NONE" text that REUSE tends to put into SPDX files.
-    let spdx_information: Vec<_> = if args.omit_no_copyright {
-        doc.file_information
-            .into_iter()
-            .filter(|f| !is_copyright_text_empty(f))
-            .collect()
-    } else {
-        doc.file_information
-            .into_iter()
-            .map(|f| {
-                if is_copyright_text_empty(&f) {
-                    let mut f = f;
-                    f.copyright_text = None;
-                    f
-                } else {
-                    f
-                }
-            })
-            .collect()
-    };
+    let spdx_information: Vec<_> =
+        omit_or_normalize_none(doc.file_information, args.omit_no_copyright);
 
     // Turn into tree, and identify uniformly-licensed subtrees
     let mut tree: CopyrightDataTree =

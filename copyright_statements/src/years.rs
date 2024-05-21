@@ -15,6 +15,14 @@ impl Display for Year {
     }
 }
 
+/// Whether something "contains" a year or year range.
+pub trait YearContainment {
+    /// Is this single year included in this?
+    fn contains_year(&self, other: &Year) -> bool;
+    /// Is this range included in this?
+    fn contains_range(&self, other: &YearRange) -> bool;
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct YearRange {
     begin: Year,
@@ -41,7 +49,7 @@ impl YearRange {
 
     fn can_add(&self, new_year: &Year) -> bool {
         // within the range
-        (new_year <= &self.end && new_year >= &self.begin)
+        self.contains_year(&new_year)
             || (*new_year == Year(self.end.0 + 1))// appends one year to the end
             || (*new_year == Year(self.begin.0 - 1)) // appends one year to the beginning
     }
@@ -115,6 +123,7 @@ impl Display for YearRange {
         }
     }
 }
+
 pub fn coalesce_years(
     years: impl IntoIterator<Item = YearRange>,
 ) -> impl Iterator<Item = YearRange> {
@@ -172,6 +181,49 @@ impl YearSpec {
     /// Helper to more concisely construct a closed range of years
     pub(crate) fn range(begin: Year, end: Year) -> Self {
         Self::ClosedRange(YearRange { begin, end })
+    }
+
+    pub fn contains(&self, other: &YearSpec) -> bool {
+        match other {
+            YearSpec::SingleYear(y) => self.contains_year(y),
+            YearSpec::ClosedRange(r) => self.contains_range(r),
+        }
+    }
+}
+
+impl YearContainment for YearRange {
+    fn contains_year(&self, other: &Year) -> bool {
+        other <= &self.end && other >= &self.begin
+    }
+
+    fn contains_range(&self, other: &YearRange) -> bool {
+        self.contains_year(&other.begin) && self.contains_year(&other.end)
+    }
+}
+
+impl YearContainment for Year {
+    fn contains_year(&self, other: &Year) -> bool {
+        self == other
+    }
+
+    fn contains_range(&self, other: &YearRange) -> bool {
+        *self == other.begin && *self == other.end
+    }
+}
+
+impl YearContainment for YearSpec {
+    fn contains_year(&self, other: &Year) -> bool {
+        match self {
+            YearSpec::SingleYear(y) => y.contains_year(other),
+            YearSpec::ClosedRange(r) => r.contains_year(other),
+        }
+    }
+
+    fn contains_range(&self, other: &YearRange) -> bool {
+        match self {
+            YearSpec::SingleYear(y) => y.contains_range(other),
+            YearSpec::ClosedRange(r) => r.contains_range(other),
+        }
     }
 }
 
@@ -234,5 +286,104 @@ impl Extend<YearSpec> for YearRangeCollection {
                 .map(YearRange::from)
                 .map(TotalOrderedYearRange::from),
         );
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn year_and_year_range_contains() {
+        let year_2024 = Year(2024);
+        let year_2025 = Year(2025);
+        let year_2023 = Year(2023);
+        let range_2024 = YearRange::new(year_2024, year_2024);
+        let range_2024_2025 = YearRange::new(year_2024, year_2025);
+        let range_2023_2024 = YearRange::new(year_2023, year_2024);
+
+        // 2024 only
+        assert!(year_2024.contains_year(&year_2024));
+        assert!(!year_2024.contains_year(&year_2025));
+        assert!(!year_2024.contains_year(&year_2023));
+
+        assert!(year_2024.contains_range(&range_2024));
+        assert!(!year_2024.contains_range(&range_2024_2025));
+        assert!(!year_2024.contains_range(&range_2023_2024));
+
+        assert!(range_2024.contains_year(&year_2024));
+        assert!(!range_2024.contains_year(&year_2025));
+        assert!(!range_2024.contains_year(&year_2023));
+
+        assert!(range_2024.contains_range(&range_2024));
+        assert!(!range_2024.contains_range(&range_2024_2025));
+        assert!(!range_2024.contains_range(&range_2023_2024));
+
+        // 2024-2025
+        assert!(range_2024_2025.contains_year(&year_2024));
+        assert!(range_2024_2025.contains_year(&year_2025));
+        assert!(!range_2024_2025.contains_year(&year_2023));
+
+        assert!(range_2024_2025.contains_range(&range_2024));
+        assert!(range_2024_2025.contains_range(&range_2024_2025));
+        assert!(!range_2024_2025.contains_range(&range_2023_2024));
+
+        // 2023-2024
+        assert!(range_2023_2024.contains_year(&year_2024));
+        assert!(!range_2023_2024.contains_year(&year_2025));
+        assert!(range_2023_2024.contains_year(&year_2023));
+
+        assert!(range_2023_2024.contains_range(&range_2024));
+        assert!(!range_2023_2024.contains_range(&range_2024_2025));
+        assert!(range_2023_2024.contains_range(&range_2023_2024));
+    }
+
+    #[test]
+    fn year_spec_contains() {
+        let year_2024 = Year(2024);
+        let year_2025 = Year(2025);
+        let year_2023 = Year(2023);
+        let range_2024 = YearRange::new(year_2024, year_2024);
+        let range_2024_2025 = YearRange::new(year_2024, year_2025);
+        let range_2023_2024 = YearRange::new(year_2023, year_2024);
+
+        let year_spec_2024 = YearSpec::single(2024);
+        let range_spec_2024 = YearSpec::range(Year(2024), Year(2024));
+        let range_spec_2024_2025 = YearSpec::range(Year(2024), Year(2025));
+        let range_spec_2023_2024 = YearSpec::range(Year(2023), Year(2024));
+        // 2024 only
+        assert!(year_spec_2024.contains_year(&year_2024));
+        assert!(!year_spec_2024.contains_year(&year_2025));
+        assert!(!year_spec_2024.contains_year(&year_2023));
+
+        assert!(year_spec_2024.contains_range(&range_2024));
+        assert!(!year_spec_2024.contains_range(&range_2024_2025));
+        assert!(!year_spec_2024.contains_range(&range_2023_2024));
+
+        assert!(range_spec_2024.contains_year(&year_2024));
+        assert!(!range_spec_2024.contains_year(&year_2025));
+        assert!(!range_spec_2024.contains_year(&year_2023));
+
+        assert!(range_spec_2024.contains_range(&range_2024));
+        assert!(!range_spec_2024.contains_range(&range_2024_2025));
+        assert!(!range_spec_2024.contains_range(&range_2023_2024));
+
+        // 2024-2025
+        assert!(range_spec_2024_2025.contains_year(&year_2024));
+        assert!(range_spec_2024_2025.contains_year(&year_2025));
+        assert!(!range_spec_2024_2025.contains_year(&year_2023));
+
+        assert!(range_spec_2024_2025.contains_range(&range_2024));
+        assert!(range_spec_2024_2025.contains_range(&range_2024_2025));
+        assert!(!range_spec_2024_2025.contains_range(&range_2023_2024));
+
+        // 2023-2024
+        assert!(range_spec_2023_2024.contains_year(&year_2024));
+        assert!(!range_spec_2023_2024.contains_year(&year_2025));
+        assert!(range_spec_2023_2024.contains_year(&year_2023));
+
+        assert!(range_spec_2023_2024.contains_range(&range_2024));
+        assert!(!range_spec_2023_2024.contains_range(&range_2024_2025));
+        assert!(range_spec_2023_2024.contains_range(&range_2023_2024));
     }
 }

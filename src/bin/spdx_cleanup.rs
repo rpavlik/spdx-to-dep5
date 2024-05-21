@@ -8,6 +8,7 @@ use spdx_rs::{
     models::{FileInformation, SPDX},
     parsers::spdx_from_tag_value,
 };
+use spdx_to_dep5::cli_help::omit_or_normalize_none;
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
@@ -36,17 +37,15 @@ struct Args {
     #[arg(long, action)]
     allow_mixed_size_implied_century_rollover: bool,
 
+    /// Omit files with no copyright data
+    #[arg(short, long)]
+    omit_no_copyright: bool,
+
     /// Input file
     #[arg(default_value = "summary.spdx")]
     input: String,
 }
 
-fn is_copyright_text_empty(fi: &FileInformation) -> bool {
-    match &fi.copyright_text {
-        None => true,
-        Some(v) => v == "NONE",
-    }
-}
 fn main() -> Result<(), spdx_rs::error::SpdxError> {
     env_logger::init();
     let args = Args::parse();
@@ -64,32 +63,9 @@ fn main() -> Result<(), spdx_rs::error::SpdxError> {
         allow_mixed_size_implied_century_rollover: args.allow_mixed_size_implied_century_rollover,
     };
     // Omit or normalize the "NONE" text that REUSE tends to put into SPDX files.
-    let spdx_information: Vec<_> = doc
-        .file_information
-        .into_iter()
-        .map(|f| {
-            if is_copyright_text_empty(&f) {
-                let mut f = f;
-                f.copyright_text = Some("NOASSERTION".to_string());
-                f
-            } else {
-                f
-            }
-        })
-        .map(|f| {
-            let parsed = f
-                .copyright_text
-                .as_ref()
-                .and_then(|copyright_text| Copyright::try_parse(opts, copyright_text).ok());
-            match parsed {
-                Some(copyright) => FileInformation {
-                    copyright_text: Some(copyright.to_string()),
-                    ..f
-                },
-                None => f,
-            }
-        })
-        .collect();
+    let spdx_information: Vec<_> =
+        omit_or_normalize_none(doc.file_information, args.omit_no_copyright);
+
     let _doc = SPDX {
         file_information: spdx_information,
         ..doc

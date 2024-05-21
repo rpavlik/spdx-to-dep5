@@ -4,10 +4,10 @@
 
 use nom::{
     branch::alt,
-    bytes::complete::tag,
+    bytes::complete::{tag, tag_no_case},
     character::complete::{multispace0, not_line_ending, space0, space1},
-    combinator::{eof, map, map_opt, recognize, rest, verify},
-    multi::separated_list1,
+    combinator::{eof, map, map_opt, opt, recognize, rest, value, verify},
+    multi::{many1, separated_list1},
     sequence::{delimited, preceded, separated_pair, terminated, tuple},
     IResult,
 };
@@ -57,24 +57,41 @@ fn year_spec_vec(
     }
 }
 
+fn copyright_prefix() -> impl FnMut(&str) -> IResult<&str, ()> {
+    move |input: &str| {
+        value(
+            (),
+            opt(tuple((
+                multispace0,
+                alt((
+                    tag_no_case("copyright"),
+                    tag_no_case("copyright (C)"),
+                    tag_no_case("copr"),
+                )),
+                multispace0,
+            ))),
+        )(input)
+    }
+}
+
 fn copyright_line(
     options: impl YearRangeNormalizationOptions + Copy,
 ) -> impl FnMut(&str) -> IResult<&str, DecomposedCopyright> {
     move |input: &str| {
         map(
-            separated_pair(
-                // Grab our years
-                year_spec_vec(options),
-                // alt((
-                //     // could be separated just by spaces
-                //     space1,
-                // could be separated by a comma with some optional spaces
-                verify(recognize(tuple((space0, tag(","), space0))), |s: &str| {
-                    !s.is_empty()
-                }),
-                // )),
-                // Grab the rest of the line as the holder
-                not_line_ending,
+            preceded(
+                // Might say "copyright" first
+                copyright_prefix(),
+                separated_pair(
+                    // Grab our years
+                    year_spec_vec(options),
+                    // could be separated by a comma with some optional spaces
+                    verify(recognize(tuple((space0, tag(","), space0))), |s: &str| {
+                        !s.is_empty()
+                    }),
+                    // Grab the rest of the line as the holder
+                    not_line_ending,
+                ),
             ),
             // Transform the tuple into a DecomposedCopyright
             |(year_spec, holder)| DecomposedCopyright::new(&year_spec, holder),
@@ -90,6 +107,16 @@ pub(crate) fn copyright_lines(
     move |input: &str| {
         alt((
             map(
+                many1(terminated(copyright_line(options), multispace0)),
+                |mut parsed| {
+                    if parsed.len() == 1 {
+                        Copyright::Decomposable(parsed.pop().expect("always there"))
+                    } else {
+                        Copyright::MultilineDecomposable(parsed)
+                    }
+                },
+            ),
+            map(
                 terminated(copyright_line(options), tuple((multispace0, eof))),
                 Copyright::Decomposable,
             ),
@@ -102,7 +129,7 @@ pub(crate) fn copyright_lines(
 
 #[cfg(test)]
 mod tests {
-    use super::{year_spec, year_spec_vec};
+    use super::*;
     use crate::{
         raw_year::{options::YearRangeNormalization, traits::SetYearRangeNormalizationOptions},
         years::{Year, YearSpec},
@@ -219,6 +246,26 @@ mod tests {
                 YearSpec::single(1996),
                 YearSpec::range(Year(1997), Year(2001))
             ]
+        );
+    }
+
+    #[test]
+    fn test_line() {
+        let opt = YearRangeNormalization::default;
+        assert_eq!(
+            all_consuming(copyright_line(opt()))("Copyright 2024, Rylie Pavlik")
+                .finish()
+                .unwrap()
+                .1,
+            DecomposedCopyright::new_from_single_yearspec(&YearSpec::single(2024), "Rylie Pavlik")
+        );
+
+        assert_eq!(
+            all_consuming(copyright_line(opt()))("2024, Rylie Pavlik")
+                .finish()
+                .unwrap()
+                .1,
+            DecomposedCopyright::new_from_single_yearspec(&YearSpec::single(2024), "Rylie Pavlik")
         );
     }
 }

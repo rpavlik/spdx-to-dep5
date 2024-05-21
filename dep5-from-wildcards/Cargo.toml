@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2021-2024, Collabora, Ltd.
+# SPDX-License-Identifier: CC0-1.0
+[package]
+authors = ["Rylie Pavlik <rylie.pavlik@collabora.com>"]
+description = "Specify your overall known licenses in a TOML file, then use the SPDX to populate exceptions."
+name = "dep5-from-wildcards"
+version = "0.6.0"
+edition = "2018"
+
+
+[dependencies]
+anyhow = "1.0.86"
+clap = { version = "4.5.4", features = ["derive", "cargo"] }
+copyright_statements = { version = "=0.5.0", path = "../copyright_statements" }
+env_logger = "0.11.1"
+glob = "0.3.1"
+itertools = "0.13.0"
+serde = { version = "1.0", features = ["derive"] }
+spdx-rs = "=0.5.5"
+spdx-to-dep5 = { version = "0.6.0", path = ".." }
+toml = "0.8.13"
+
+[patch.crates-io]
+spdx-expression = { git = "https://github.com/rpavlik/spdx-expression.git", branch = "hashable-expressions" }
+spdx-rs = { git = "https://github.com/rpavlik/spdx-rs.git", branch = "fix-date" }
