@@ -3,10 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 use clap::{crate_authors, crate_description, Parser};
 use copyright_statements::{Copyright, YearRangeNormalization};
-use deb822_lossless::Deb822;
-use glob::Pattern;
+
+use input_file::WildcardEntry;
 use itertools::Itertools;
-use serde::Deserialize;
 use spdx_rs::{
     models::{FileInformation, SpdxExpression},
     parsers::spdx_from_tag_value,
@@ -14,10 +13,16 @@ use spdx_rs::{
 use spdx_to_dep5::{
     cleanup::cleanup_copyright_text,
     cli_help::omit_or_normalize_none,
-    deb822::{control_file::Paragraphs, dep5::FilesParagraph},
+    deb822::{
+        control_file::{Paragraph, Paragraphs},
+        dep5::FilesParagraph,
+    },
     tree::{make_paragraphs, CopyrightDataTree},
 };
-use std::str::FromStr;
+
+use crate::input_file::{load_config, CopyrightFileIntro};
+
+mod input_file;
 
 #[derive(Parser, Debug)]
 #[command(author=crate_authors!(), version, about=crate_description!())]
@@ -49,79 +54,6 @@ struct Args {
     /// Omit files with no copyright data
     #[arg(short, long)]
     omit_no_copyright: bool,
-}
-
-/// Corresponds to a `[[wildcards]]` entry in the TOML file.
-#[derive(Deserialize)]
-struct RawWildcardEntry {
-    patterns: Vec<String>,
-    license: String,
-    copyright: String,
-    comment: Option<String>,
-}
-
-/// Corresponds to the entire TOML file.
-#[derive(Deserialize)]
-struct WildcardsFile {
-    wildcards: Vec<RawWildcardEntry>,
-}
-
-/// This is the fully-processed version of `RawWildcardEntry`.
-struct WildcardEntry {
-    patterns: Vec<Pattern>,
-    license: SpdxExpression,
-    copyright: Copyright,
-    comment: Option<String>,
-}
-
-impl WildcardEntry {
-    /// Try to turn a `RawWildcardEntry` into a `WildcardEntry`
-    fn try_parse(
-        options: YearRangeNormalization,
-        raw: RawWildcardEntry,
-    ) -> Result<Self, anyhow::Error> {
-        let wildcard: Vec<Pattern> = raw
-            .patterns
-            .iter()
-            .map(|w| Pattern::new(w))
-            .collect::<Result<Vec<_>, _>>()?;
-        let license = SpdxExpression::parse(&raw.license)?;
-        let copyright = Copyright::try_parse(options, &raw.copyright)?;
-        Ok(WildcardEntry {
-            patterns: wildcard,
-            license,
-            copyright,
-            comment: raw.comment,
-        })
-    }
-
-    /// Compare a `WildcardEntry` with the filename, license, and copyright data for a given file.
-    /// Returns true if it matches.
-    fn matches(&self, filename: &str, license: &SpdxExpression, copyright: &Copyright) -> bool {
-        self.patterns.iter().any(|p| p.matches(filename))
-            && *license == self.license
-            && self.copyright.contains(copyright)
-    }
-}
-
-/// Convert a `WildcardEntry` into a `FilesParagraph` to output for the `copyright` file
-impl From<WildcardEntry> for FilesParagraph {
-    fn from(val: WildcardEntry) -> Self {
-        let files = val
-            .patterns
-            .iter()
-            .map(ToString::to_string)
-            .join("\n")
-            .into();
-        let license = val.license.to_string().into();
-        let copyright = val.copyright.to_string().into();
-        FilesParagraph {
-            files,
-            license,
-            copyright,
-            comment: val.comment.map(|c| c.into()),
-        }
-    }
 }
 
 /// Turn the expressions in the file into a OR expression.
@@ -198,62 +130,45 @@ fn main() -> Result<(), anyhow::Error> {
         omit_or_normalize_none(spdx_doc.file_information, args.omit_no_copyright);
 
     // Load TOML or dep5 copyright file
-    let wildcard_entries: Vec<WildcardEntry> = {
-        let filename = args.wildcard_input;
-        eprintln!("Opening {filename}");
-        let file = std::fs::read_to_string(&filename)?;
-        let raw_entries: Vec<RawWildcardEntry> = if filename.ends_with(".toml") {
-            let raw_config: WildcardsFile = toml::from_str(&file)?;
-            raw_config.wildcards
-        } else {
-            Deb822::from_str(&file)?
-                .paragraphs()
-                .filter_map(|p| {
-                    let files = p.get("Files")?;
-                    let license = p.get("License")?;
-                    let copyright = p.get("Copyright")?;
-                    let comment = p.get("Comment");
-                    let patterns: Vec<String> = files
-                        .split('\n')
-                        .map(|line| line.trim().to_string())
-                        .collect();
-
-                    Some(RawWildcardEntry {
-                        patterns: patterns,
-                        license: license,
-                        copyright: copyright,
-                        comment: comment,
-                    })
-                })
-                .collect()
-        };
-        raw_entries
-            .into_iter()
-            .map(|raw| WildcardEntry::try_parse(opts, raw))
-            .collect::<Result<Vec<WildcardEntry>, _>>()?
-        // wildcard_entries?
-    };
+    let filename = args.wildcard_input;
+    let parsed = load_config(&filename, &opts)?;
 
     // Turn entries that do not match the wildcard into tree, and identify uniformly-licensed subtrees
     let data_tree: CopyrightDataTree = spdx_information
         .into_iter()
-        .filter(|fi| !matches_wildcards(opts, &wildcard_entries, fi))
+        .filter(|fi| !matches_wildcards(opts, &parsed.wildcard_entries, fi))
         .collect();
     // data_tree.propagate_metadata();
 
-    // These are the ones from TOML
-    let explicit_paragraphs = wildcard_entries.into_iter().map(|w| {
-        let para: FilesParagraph = w.into();
-        para
-    });
+    // Intro header
+    let intro: Option<String> = parsed
+        .intro
+        .and_then(|intro: CopyrightFileIntro| Paragraph::try_to_string_ok(&intro));
+
+    // Trailing licenses
+    let trailing = parsed
+        .license_texts
+        .iter()
+        .filter_map(|lic| lic.try_to_string_ok());
+    // These are the ones from TOML/DEP5
+    let explicit_paragraphs = parsed
+        .wildcard_entries
+        .into_iter()
+        .map(|w| {
+            let para: FilesParagraph = w.into();
+            para
+        })
+        .flatten_to_strings();
 
     // These are the ones we need to add for completeness, sorted.
     let additional_paragraphs = make_paragraphs(data_tree).flatten_to_strings().sorted();
 
     // Everybody turns into a string
-    let paragraphs: Vec<String> = explicit_paragraphs
-        .flatten_to_strings()
+    let paragraphs: Vec<String> = intro
+        .into_iter()
+        .chain(explicit_paragraphs)
         .chain(additional_paragraphs)
+        .chain(trailing)
         .collect_vec();
 
     println!("{}", paragraphs.join("\n\n"));
