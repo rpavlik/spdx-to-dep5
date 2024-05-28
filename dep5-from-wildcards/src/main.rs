@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 use clap::{crate_authors, crate_description, Parser};
 use copyright_statements::{Copyright, YearRangeNormalization};
+use deb822_lossless::Deb822;
 use glob::Pattern;
 use itertools::Itertools;
 use serde::Deserialize;
@@ -16,6 +17,7 @@ use spdx_to_dep5::{
     deb822::{control_file::Paragraphs, dep5::FilesParagraph},
     tree::{make_paragraphs, CopyrightDataTree},
 };
+use std::str::FromStr;
 
 #[derive(Parser, Debug)]
 #[command(author=crate_authors!(), version, about=crate_description!())]
@@ -40,9 +42,9 @@ struct Args {
     #[arg(default_value = "summary.spdx")]
     spdx_input: String,
 
-    /// input file with wildcards
+    /// input file with wildcards - toml or not
     #[arg(default_value = "wildcards.toml")]
-    toml_input: String,
+    wildcard_input: String,
 
     /// Omit files with no copyright data
     #[arg(short, long)]
@@ -195,19 +197,41 @@ fn main() -> Result<(), anyhow::Error> {
     let spdx_information: Vec<_> =
         omit_or_normalize_none(spdx_doc.file_information, args.omit_no_copyright);
 
-    // Load TOML file
+    // Load TOML or dep5 copyright file
     let wildcard_entries: Vec<WildcardEntry> = {
-        let filename = args.toml_input;
+        let filename = args.wildcard_input;
         eprintln!("Opening {filename}");
-        let file = std::fs::read_to_string(filename)?;
+        let file = std::fs::read_to_string(&filename)?;
+        let raw_entries: Vec<RawWildcardEntry> = if filename.ends_with(".toml") {
+            let raw_config: WildcardsFile = toml::from_str(&file)?;
+            raw_config.wildcards
+        } else {
+            Deb822::from_str(&file)?
+                .paragraphs()
+                .filter_map(|p| {
+                    let files = p.get("Files")?;
+                    let license = p.get("License")?;
+                    let copyright = p.get("Copyright")?;
+                    let comment = p.get("Comment");
+                    let patterns: Vec<String> = files
+                        .split('\n')
+                        .map(|line| line.trim().to_string())
+                        .collect();
 
-        let raw_config: WildcardsFile = toml::from_str(&file)?;
-        let wildcard_entries: Result<Vec<WildcardEntry>, anyhow::Error> = raw_config
-            .wildcards
+                    Some(RawWildcardEntry {
+                        patterns: patterns,
+                        license: license,
+                        copyright: copyright,
+                        comment: comment,
+                    })
+                })
+                .collect()
+        };
+        raw_entries
             .into_iter()
             .map(|raw| WildcardEntry::try_parse(opts, raw))
-            .collect();
-        wildcard_entries?
+            .collect::<Result<Vec<WildcardEntry>, _>>()?
+        // wildcard_entries?
     };
 
     // Turn entries that do not match the wildcard into tree, and identify uniformly-licensed subtrees

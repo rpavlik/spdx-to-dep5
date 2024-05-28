@@ -12,6 +12,7 @@ edition = "2018"
 anyhow = "1.0.86"
 clap = { version = "4.5.4", features = ["derive", "cargo"] }
 copyright_statements = { version = "=0.7.0", path = "../copyright_statements" }
+deb822-lossless = "0.2.4"
 env_logger = "0.11.1"
 glob = "0.3.1"
 itertools = "0.13.0"
