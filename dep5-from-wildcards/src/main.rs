@@ -126,6 +126,7 @@ impl From<WildcardEntry> for FilesParagraph {
 fn info_in_file_to_expression(license_info_in_file: &[SpdxExpression]) -> SpdxExpression {
     let s = license_info_in_file
         .iter()
+        .unique()
         // .map(|e| format!("({})", e))
         .map(ToString::to_string)
         .sorted()
