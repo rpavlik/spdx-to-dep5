@@ -37,7 +37,8 @@ impl StrExt for str {
 pub fn cleanup_copyright_text(text: &Option<String>) -> Vec<Cow<str>> {
     lazy_static! {
         // we don't want the license in the copyright text
-        static ref RE: Regex = Regex::new("(SPDX-License-Identifier:.*|(\\n|,|')+)$").unwrap();
+        // nor bogus lines
+        static ref RE: Regex = Regex::new("(SPDX-License-Identifier:.*|(\\n|,|')+|.*;;;;;;;;;;;;;)$").unwrap();
     }
     text.iter()
         .flat_map(|s| {
