@@ -507,7 +507,7 @@ fn process_file_pattern(path: &str) -> String {
 
 pub fn make_paragraphs(cdt: CopyrightDataTree) -> impl Iterator<Item = FilesParagraph> {
     let mut paras = vec![];
-    let grouped = NodeIdsWithMetadata::new(&cdt).group_by(|&id| cdt.get_metadata_id(id));
+    let grouped = NodeIdsWithMetadata::new(&cdt).chunk_by(|&id| cdt.get_metadata_id(id));
     for (key, grouped_ids) in &grouped {
         let metadata_id = key.unwrap();
         if let Some(metadata) = cdt.metadata.get(metadata_id) {
