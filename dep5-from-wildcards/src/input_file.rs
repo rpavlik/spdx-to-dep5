@@ -11,6 +11,7 @@ use glob::Pattern;
 use itertools::Itertools;
 use serde::Deserialize;
 use spdx_rs::models::SpdxExpression;
+use spdx_to_dep5::cleanup::{licenses_debian_to_spdx, licenses_spdx_to_debian};
 use spdx_to_dep5::deb822::control_file::{
     ControlFileError, Paragraph, ParagraphAccumulator, SingleLineField,
 };
@@ -143,7 +144,7 @@ impl From<WildcardEntry> for FilesParagraph {
             .map(ToString::to_string)
             .join("\n")
             .into();
-        let license = val.license.to_string().into();
+        let license = licenses_spdx_to_debian(&val.license.to_string()).into();
         let copyright = val.copyright.to_string().into();
         FilesParagraph {
             files,
@@ -170,7 +171,7 @@ fn load_dep5(file: &str) -> Result<RawWildcardsFile, anyhow::Error> {
         .paragraphs()
         .filter_map(|p| {
             let files = p.get("Files")?;
-            let license = p.get("License")?;
+            let license = licenses_debian_to_spdx(&p.get("License")?);
             let copyright = p.get("Copyright")?;
             let comment = p.get("Comment");
             let patterns: Vec<String> = files
