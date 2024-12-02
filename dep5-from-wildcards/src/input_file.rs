@@ -13,7 +13,8 @@ use serde::Deserialize;
 use spdx_rs::models::SpdxExpression;
 use spdx_to_dep5::cleanup::{licenses_debian_to_spdx, licenses_spdx_to_debian};
 use spdx_to_dep5::deb822::control_file::{
-    ControlFileError, Paragraph, ParagraphAccumulator, SingleLineField,
+    ControlFileError, MultilineEmptyFirstLineField, Paragraph, ParagraphAccumulator,
+    SingleLineField,
 };
 use spdx_to_dep5::deb822::dep5::FilesParagraph;
 
@@ -31,6 +32,8 @@ pub struct CopyrightFileIntro {
     format: String,
     upstream_name: String,
     source: String,
+    files_excluded: Vec<String>,
+    comment: Option<String>,
 }
 
 impl Paragraph for CopyrightFileIntro {
@@ -43,6 +46,17 @@ impl Paragraph for CopyrightFileIntro {
                     &SingleLineField::from(self.upstream_name.clone()),
                 )?
                 .write("Source", &SingleLineField::from(self.source.clone()))?
+                .write(
+                    "Comment",
+                    &self
+                        .comment
+                        .as_ref()
+                        .map(|c| SingleLineField::from(c.clone())),
+                )?
+                .write(
+                    "Files-Excluded",
+                    &MultilineEmptyFirstLineField::try_from(&self.files_excluded).ok(),
+                )?
                 .to_string(),
         ))
     }
@@ -161,10 +175,17 @@ fn load_dep5(file: &str) -> Result<RawWildcardsFile, anyhow::Error> {
         let format = p.get("Format")?;
         let upstream = p.get("Upstream-Name")?;
         let source = p.get("Source")?;
+        let comment = p.get("Comment");
+        let excluded: Vec<String> = p
+            .get("Files-Excluded")
+            .map(|s| s.trim().split("\n").map(ToString::to_string).collect())
+            .unwrap_or_default();
         Some(CopyrightFileIntro {
             format,
             upstream_name: upstream,
             source,
+            comment,
+            files_excluded: excluded,
         })
     });
     let patterns: Vec<RawWildcardEntry> = dep5
