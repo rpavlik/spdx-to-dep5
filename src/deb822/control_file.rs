@@ -1,10 +1,12 @@
-// Copyright 2021, Collabora, Ltd.
+// Copyright 2021-2024, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 //! Syntax for writing Debian control files
 //!
 //! See <https://www.debian.org/doc/debian-policy/ch-controlfields#s-controlsyntax>
+
+use std::convert::TryFrom;
 
 use thiserror;
 
@@ -53,6 +55,10 @@ fn format_field<'a, T: Iterator<Item = &'a str>>(
 pub enum ControlFileError {
     #[error("Unexpected newline in field {0}")]
     UnexpectedNewline(String),
+    #[error("No value in field {0}. If seen on export, means missing .ok()")]
+    NoValue(String),
+    #[error("No value in field. If seen on export, means missing .ok()")]
+    NoValueAnon,
 }
 
 /// A trait implemented for different types of Debian "control file" (aka deb822) fields.
@@ -70,6 +76,24 @@ impl From<String> for SingleLineField {
         Self(s)
     }
 }
+
+impl From<&str> for SingleLineField {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+impl TryFrom<&Option<String>> for SingleLineField {
+    fn try_from(value: &Option<String>) -> Result<Self, Self::Error> {
+        value
+            .as_ref()
+            .map(|v| SingleLineField::from(v.to_string()))
+            .ok_or(ControlFileError::NoValueAnon)
+    }
+
+    type Error = ControlFileError;
+}
+
 impl Field for SingleLineField {
     fn try_to_string(&self, field_name: &str) -> Result<Option<String>, ControlFileError> {
         if self.0.contains('\n') {
@@ -107,6 +131,30 @@ impl From<String> for MultilineEmptyFirstLineField {
         Self(s)
     }
 }
+
+impl From<&str> for MultilineEmptyFirstLineField {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+// impl From<&Vec<String>> for MultilineEmptyFirstLineField {
+//     fn from(s: &Vec<String>) -> Self {
+//         Self(s.join("\n"))
+//     }
+// }
+
+impl TryFrom<&Vec<String>> for MultilineEmptyFirstLineField {
+    fn try_from(value: &Vec<String>) -> Result<Self, Self::Error> {
+        if value.is_empty() {
+            return Err(ControlFileError::NoValueAnon);
+        }
+        Ok(Self(value.join("\n")))
+    }
+
+    type Error = ControlFileError;
+}
+
 impl Field for MultilineEmptyFirstLineField {
     fn try_to_string(&self, field_name: &str) -> Result<Option<String>, ControlFileError> {
         let lines = self.0.split('\n');
