@@ -13,17 +13,17 @@ version = "0.7.0"
 [dependencies]
 clap = { version = "4.5.4", features = ["derive", "cargo"] }
 copyright_statements = { version = "=0.7.0", path = "copyright_statements" }
-derive_more = "0.99"
+derive_more = { version = "1", features = ["from", "into"] }
 env_logger = "0.11.1"
 indextree = "4.4"
 itertools = "0.13"
-lazy_static = "1.4"
+lazy_static = "1.5.0"
 log = "0.4"
 nom = "7.1"
 regex = "1.5"
 spdx-rs = "=0.5.5"
 # spdx-expression = { git = "https://github.com/rpavlik/spdx-expression.git", branch = "hashable-expressions" }
-thiserror = "1.0"
+thiserror = "2.0.3"
 typed-index-collections = "3.0"
 atom_table = "1.0.0"
 
