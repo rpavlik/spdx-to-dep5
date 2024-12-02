@@ -92,10 +92,7 @@ fn matches_wildcards(
         .unwrap_or_else(|| info_in_file_to_expression(&item.license_information_in_file));
 
     let copyright_text = cleanup_copyright_text(&item.copyright_text).join("\n");
-    let filename = item
-        .file_name
-        .strip_prefix("./")
-        .unwrap_or_else(|| &item.file_name);
+    let filename = item.file_name.trim_start_matches("./");
 
     let parsed_copyright = Copyright::try_parse(options, &copyright_text);
 
@@ -136,9 +133,17 @@ fn main() -> Result<(), anyhow::Error> {
     let filename = args.wildcard_input;
     let parsed = load_config(&filename, &opts)?;
 
+    eprintln!(
+        "Exclusions: {}",
+        &parsed.exclude.iter().map(|p| p.as_str()).join(";")
+    );
     // Turn entries that do not match the wildcard into tree, and identify uniformly-licensed subtrees
     let data_tree: CopyrightDataTree = spdx_information
         .into_iter()
+        .filter(|fi| {
+            let filename = fi.file_name.trim_start_matches("./");
+            !parsed.exclude.iter().any(|pat| pat.matches(filename))
+        })
         .filter(|fi| !matches_wildcards(opts, &parsed.wildcard_entries, fi))
         .collect();
     // data_tree.propagate_metadata();

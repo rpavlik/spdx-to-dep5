@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use std::borrow::Borrow;
+use std::convert::TryFrom;
 use std::str::FromStr;
 
 use copyright_statements::{Copyright, YearRangeNormalization};
@@ -103,6 +104,7 @@ pub struct WildcardEntry {
 
 pub struct ParsedData {
     pub intro: Option<CopyrightFileIntro>,
+    pub exclude: Vec<Pattern>,
     pub wildcard_entries: Vec<WildcardEntry>,
     pub license_texts: Vec<LicenseText>,
 }
@@ -243,6 +245,18 @@ pub fn load_config(
         load_dep5(&file)?
     };
 
+    let exclude = raw
+        .intro
+        .as_ref()
+        .map(|intro| {
+            intro
+                .files_excluded
+                .iter()
+                .filter_map(|p| Pattern::from_str(&p).ok())
+                .collect_vec()
+        })
+        .unwrap_or_default();
+
     // Now make them parsed wildcard entries.
     let wildcard_entries: Vec<WildcardEntry> = raw
         .wildcards
@@ -253,5 +267,6 @@ pub fn load_config(
         intro: raw.intro,
         wildcard_entries,
         license_texts: raw.license_texts,
+        exclude,
     })
 }
