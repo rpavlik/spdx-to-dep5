@@ -120,6 +120,18 @@ impl WildcardEntry {
             && *license == self.license
             && self.copyright.contains(copyright)
     }
+
+    pub fn matches_wildcard(&self, filename: &str) -> bool {
+        self.patterns.iter().any(|p| p.matches(filename))
+    }
+
+    pub fn matches_license_and_copyright(
+        &self,
+        license: &SpdxExpression,
+        copyright: &Copyright,
+    ) -> bool {
+        *license == self.license && self.copyright.contains(copyright)
+    }
 }
 
 /// Convert a `WildcardEntry` into a `FilesParagraph` to output for the `copyright` file

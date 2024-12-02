@@ -64,7 +64,7 @@ fn info_in_file_to_expression(license_info_in_file: &[SpdxExpression]) -> SpdxEx
         // .map(|e| format!("({})", e))
         .map(ToString::to_string)
         .sorted()
-        .join(" OR ");
+        .join(" or ");
     if let Ok(e) = SpdxExpression::parse(&s) {
         e
     } else {
@@ -103,7 +103,10 @@ fn matches_wildcards(
         // eprintln!("{}: {} ; {}", filename, &license_to_match, &copyright);
         return wildcards
             .iter()
-            .any(|elt| elt.matches(filename, &license_to_match, &copyright));
+            .filter(|elt| elt.matches_wildcard(filename))
+            .last()
+            .map(|elt| elt.matches_license_and_copyright(&license_to_match, &copyright))
+            .unwrap_or(false);
     }
     eprintln!("{}: parse copyright failed", filename);
     false
