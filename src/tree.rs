@@ -1,4 +1,4 @@
-// Copyright 2021-2023, Collabora, Ltd.
+// Copyright 2021-2024, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::{
-    cleanup::{cleanup_copyright_text, StrExt},
+    cleanup::{cleanup_copyright_text, licenses_spdx_to_debian, StrExt},
     deb822::dep5::FilesParagraph,
 };
 use atom_table::AtomTable;
@@ -522,6 +522,10 @@ pub fn make_paragraphs(cdt: CopyrightDataTree) -> impl Iterator<Item = FilesPara
                 .iter()
                 .map(|expr| expr.to_string())
                 .join(" OR ");
+
+            // Use Debian names for licenses
+            let license_string = licenses_spdx_to_debian(&license_string);
+
             paras.push(FilesParagraph {
                 files: files.into(),
                 copyright: metadata.copyright_text.clone().into(),
