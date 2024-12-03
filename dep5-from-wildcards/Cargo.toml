@@ -20,6 +20,6 @@ spdx-rs = "=0.5.5"
 spdx-to-dep5 = { version = "0.7.0", path = ".." }
 toml = "0.8.13"
 
-[patch.crates-io]
-spdx-expression = { git = "https://github.com/rpavlik/spdx-expression.git", branch = "hashable-expressions" }
-spdx-rs = { git = "https://github.com/rpavlik/spdx-rs.git", branch = "fix-date" }
+# [patch.crates-io]
+# spdx-expression = { git = "https://github.com/rpavlik/spdx-expression.git", branch = "hashable-expressions" }
+# spdx-rs = { git = "https://github.com/rpavlik/spdx-rs.git", branch = "fix-date" }
