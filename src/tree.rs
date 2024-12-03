@@ -517,14 +517,27 @@ pub fn make_paragraphs(cdt: CopyrightDataTree) -> impl Iterator<Item = FilesPara
                 .map(|path| process_file_pattern(&path))
                 .collect_vec()
                 .join("\n");
-            let license_string = metadata
+
+            // Parenthesize complex expressions before merging
+            let initial_license_string = metadata
                 .license
                 .iter()
-                .map(|expr| expr.to_string())
+                .map(|expr| {
+                    if expr.licenses().len() == 1 {
+                        expr.to_string()
+                    } else {
+                        format!("({})", expr)
+                    }
+                })
                 .join(" OR ");
 
+            // Re-parse as expression, in case this simplifies things.
+            let license_string =
+                SpdxExpression::parse(&initial_license_string).map(|expr| expr.to_string());
+
             // Use Debian names for licenses
-            let license_string = licenses_spdx_to_debian(&license_string);
+            let license_string =
+                licenses_spdx_to_debian(&license_string.unwrap_or(initial_license_string));
 
             paras.push(FilesParagraph {
                 files: files.into(),
