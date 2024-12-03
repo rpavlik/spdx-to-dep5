@@ -9,26 +9,10 @@ use std::borrow::Cow;
 
 /// Helpful additions to strings.
 pub trait StrExt {
-    fn strip_prefix_if_present(&self, prefix: &str) -> &str;
-    fn strip_suffix_if_present(&self, suffix: &str) -> &str;
     fn strip_match_if_present(&self, re: &Regex) -> Cow<str>;
 }
 
 impl StrExt for str {
-    fn strip_prefix_if_present(&self, prefix: &str) -> &str {
-        if let Some(after_removed) = self.strip_prefix(prefix) {
-            after_removed.trim()
-        } else {
-            self
-        }
-    }
-    fn strip_suffix_if_present(&self, suffix: &str) -> &str {
-        if let Some(after_removed) = self.strip_suffix(suffix) {
-            after_removed.trim()
-        } else {
-            self
-        }
-    }
     fn strip_match_if_present(&self, re: &Regex) -> Cow<str> {
         re.replace(self, "")
     }
@@ -45,15 +29,21 @@ pub fn cleanup_copyright_text(text: &Option<String>) -> Vec<Cow<str>> {
             s.split('\n')
                 .map(|line| {
                     line.trim()
-                        .strip_prefix_if_present("SPDX-FileCopyrightText:")
-                        .strip_prefix_if_present("Copyright")
-                        .strip_prefix_if_present(":")
-                        .strip_prefix_if_present("Copyright")
-                        .strip_prefix_if_present("(c)")
-                        .strip_prefix_if_present("(C)")
-                        .strip_suffix_if_present("'")
-                        .strip_suffix_if_present("\"")
-                        .strip_suffix_if_present("\\n")
+                        .trim_start_matches("SPDX-FileCopyrightText:")
+                        .trim()
+                        .trim_start_matches("Copyright")
+                        .trim()
+                        .trim_start_matches(":")
+                        .trim()
+                        .trim_start_matches("Copyright")
+                        .trim()
+                        .trim_start_matches("(c)")
+                        .trim_start_matches("(C)")
+                        .trim()
+                        .trim_end_matches("'")
+                        .trim_end_matches("\"")
+                        .trim_end_matches("\\n")
+                        .trim()
                         .strip_match_if_present(&RE)
                 })
                 .filter(|str| !str.is_empty())

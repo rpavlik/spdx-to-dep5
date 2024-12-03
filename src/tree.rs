@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::{
-    cleanup::{cleanup_copyright_text, licenses_spdx_to_debian, StrExt},
+    cleanup::{cleanup_copyright_text, licenses_spdx_to_debian},
     deb822::dep5::FilesParagraph,
 };
 use atom_table::AtomTable;
@@ -222,7 +222,7 @@ impl CopyrightDataTree<Metadata> {
             copyright_text,
             license,
         });
-        let filename = item.file_name.strip_prefix_if_present("./");
+        let filename = item.file_name.trim_start_matches("./");
         let id = find_or_create_node(&mut self.tree_arena, self.root, filename);
         let node = self.tree_arena.get_mut(id).unwrap();
         node.get_mut().metadata = Some(metadata_id);
@@ -502,7 +502,7 @@ pub fn summarize_metadata(
 }
 
 fn process_file_pattern(path: &str) -> String {
-    path.strip_prefix_if_present("./").replace(' ', "?") // apparently space is a reserved separator
+    path.trim_start_matches("./").replace(' ', "?") // apparently space is a reserved separator
 }
 
 pub fn make_paragraphs(cdt: CopyrightDataTree) -> impl Iterator<Item = FilesParagraph> {
