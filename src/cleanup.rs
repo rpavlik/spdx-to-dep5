@@ -9,12 +9,29 @@ use std::borrow::Cow;
 
 /// Helpful additions to strings.
 pub trait StrExt {
+    /// Replace text matching the regex with the empty string
     fn strip_match_if_present(&self, re: &Regex) -> Cow<str>;
+
+    /// Convert license identifiers from Debian convention to SPDX convention
+    fn licenses_debian_to_spdx(&self) -> String;
+
+    /// Convert license identifiers from SPDX convention to Debian convention
+    fn licenses_spdx_to_debian(&self) -> String;
 }
 
 impl StrExt for str {
     fn strip_match_if_present(&self, re: &Regex) -> Cow<str> {
         re.replace(self, "")
+    }
+
+    fn licenses_debian_to_spdx(&self) -> String {
+        self.replace("Expat", "MIT")
+            .replace("BSD-3-clause", "BSD-3-Clause")
+    }
+
+    fn licenses_spdx_to_debian(&self) -> String {
+        self.replace("MIT", "Expat")
+            .replace("BSD-3-Clause", "BSD-3-clause")
     }
 }
 
@@ -51,14 +68,4 @@ pub fn cleanup_copyright_text(text: &Option<String>) -> Vec<Cow<str>> {
         })
         .dedup()
         .collect()
-}
-
-pub fn licenses_debian_to_spdx(text: &str) -> String {
-    text.replace("Expat", "MIT")
-        .replace("BSD-3-clause", "BSD-3-Clause")
-}
-
-pub fn licenses_spdx_to_debian(text: &str) -> String {
-    text.replace("MIT", "Expat")
-        .replace("BSD-3-Clause", "BSD-3-clause")
 }

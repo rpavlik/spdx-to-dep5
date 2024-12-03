@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::{
-    cleanup::{cleanup_copyright_text, licenses_spdx_to_debian},
+    cleanup::{cleanup_copyright_text, StrExt},
     deb822::dep5::FilesParagraph,
 };
 use atom_table::AtomTable;
@@ -536,8 +536,9 @@ pub fn make_paragraphs(cdt: CopyrightDataTree) -> impl Iterator<Item = FilesPara
                 SpdxExpression::parse(&initial_license_string).map(|expr| expr.to_string());
 
             // Use Debian names for licenses
-            let license_string =
-                licenses_spdx_to_debian(&license_string.unwrap_or(initial_license_string));
+            let license_string = license_string
+                .unwrap_or(initial_license_string)
+                .licenses_spdx_to_debian();
 
             paras.push(FilesParagraph {
                 files: files.into(),
