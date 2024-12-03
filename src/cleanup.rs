@@ -1,4 +1,4 @@
-// Copyright 2021-2022, Collabora, Ltd.
+// Copyright 2021-2024, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
@@ -61,4 +61,14 @@ pub fn cleanup_copyright_text(text: &Option<String>) -> Vec<Cow<str>> {
         })
         .dedup()
         .collect()
+}
+
+pub fn licenses_debian_to_spdx(text: &str) -> String {
+    text.replace("Expat", "MIT")
+        .replace("BSD-3-clause", "BSD-3-Clause")
+}
+
+pub fn licenses_spdx_to_debian(text: &str) -> String {
+    text.replace("MIT", "Expat")
+        .replace("BSD-3-Clause", "BSD-3-clause")
 }
