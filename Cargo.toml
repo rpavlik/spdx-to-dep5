@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2021-2024, Collabora, Ltd.
+# SPDX-FileCopyrightText: 2021-2025, Collabora, Ltd.
 # SPDX-License-Identifier: CC0-1.0
 
 [package]
@@ -16,7 +16,7 @@ copyright_statements = { version = "=0.7.0", path = "copyright_statements" }
 derive_more = { version = "1", features = ["from", "into"] }
 env_logger = "0.11.1"
 indextree = "4.4"
-itertools = "0.13"
+itertools = "0.14.0"
 lazy_static = "1.5.0"
 log = "0.4"
 nom = "7.1"
