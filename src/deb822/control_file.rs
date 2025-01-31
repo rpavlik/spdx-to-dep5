@@ -1,4 +1,4 @@
-// Copyright 2021-2024, Collabora, Ltd.
+// Copyright 2021-2025, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
@@ -245,9 +245,8 @@ impl ParagraphAccumulator {
     }
 }
 
-impl ToString for ParagraphAccumulator {
-    /// Return a string containing the whole paragraph, with no trailing newline.
-    fn to_string(&self) -> String {
-        self.field_lines.join("\n")
+impl std::fmt::Display for ParagraphAccumulator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.field_lines.join("\n"))
     }
 }

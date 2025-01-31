@@ -1,4 +1,4 @@
-// Copyright 2021-2022, Collabora, Ltd.
+// Copyright 2021-2025, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 use clap::{crate_authors, crate_description, ArgGroup, Parser};
@@ -12,14 +12,6 @@ use spdx_to_dep5::{
     },
     tree::{make_paragraphs, CopyrightDataTree},
 };
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-};
-
-/// A collection of full PathBuf paths, grouped by their parent directory
-#[derive(Debug, Default)]
-struct DirectoryAndFullPathBufMap(HashMap<Option<PathBuf>, HashSet<PathBuf>>);
 
 #[derive(Parser, Debug)]
 #[command(author=crate_authors!(), version, about=crate_description!())]

@@ -1,4 +1,4 @@
-// Copyright 2021-2024, Collabora, Ltd.
+// Copyright 2021-2025, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
@@ -71,7 +71,7 @@ where
 {
     parent_node_id
         .children(arena)
-        .find(|&id| arena.get(id).map_or(false, &pred))
+        .find(|&id| arena.get(id).is_some_and(&pred))
         .unwrap_or_else(|| {
             let new_id = arena.new_node(factory());
             parent_node_id.append(new_id, arena);

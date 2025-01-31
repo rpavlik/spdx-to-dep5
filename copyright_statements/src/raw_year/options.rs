@@ -1,4 +1,4 @@
-// Copyright 2021-2023, Collabora, Ltd.
+// Copyright 2021-2025, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
@@ -19,12 +19,6 @@ pub struct YearRangeNormalization {
     /// Should we allow the century part of a year range's endpoint to be inferred
     /// across a century boundary based on the other endpoint's known century.
     pub allow_mixed_size_implied_century_rollover: bool,
-}
-
-impl YearRangeNormalization {
-    pub(crate) fn new() -> Self {
-        Default::default()
-    }
 }
 
 impl SingleYearNormalizationOptions for YearRangeNormalization {
