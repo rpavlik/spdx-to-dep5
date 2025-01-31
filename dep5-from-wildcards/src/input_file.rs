@@ -1,4 +1,4 @@
-// Copyright 2021-2024, Collabora, Ltd.
+// Copyright 2021-2025, Collabora, Ltd.
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
@@ -173,7 +173,7 @@ impl From<WildcardEntry> for FilesParagraph {
 
 fn load_dep5(file: &str) -> Result<RawWildcardsFile, anyhow::Error> {
     let dep5 = Deb822::from_str(file)?;
-    let intro: Option<CopyrightFileIntro> = dep5.paragraphs().nth(0).and_then(|p| {
+    let intro: Option<CopyrightFileIntro> = dep5.paragraphs().next().and_then(|p| {
         let format = p.get("Format")?;
         let upstream = p.get("Upstream-Name")?;
         let source = p.get("Source")?;
@@ -236,7 +236,7 @@ pub fn load_config(
     opts: &YearRangeNormalization,
 ) -> Result<ParsedData, anyhow::Error> {
     eprintln!("Opening {filename}");
-    let file = std::fs::read_to_string(&filename)?;
+    let file = std::fs::read_to_string(filename)?;
     let raw: RawWildcardsFile = if filename.ends_with(".toml") {
         eprintln!("Parsing {filename} as TOML");
         toml::from_str(&file)?
@@ -252,7 +252,7 @@ pub fn load_config(
             intro
                 .files_excluded
                 .iter()
-                .filter_map(|p| Pattern::from_str(&p).ok())
+                .filter_map(|p| Pattern::from_str(p).ok())
                 .collect_vec()
         })
         .unwrap_or_default();
