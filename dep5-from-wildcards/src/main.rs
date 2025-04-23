@@ -54,6 +54,10 @@ struct Args {
     /// Omit files with no copyright data
     #[arg(short, long)]
     omit_no_copyright: bool,
+
+    /// Simplify by combining uniformly-licensed subtrees
+    #[arg(short, long)]
+    simplify: bool,
 }
 
 /// Turn the expressions in the file into a OR expression.
@@ -146,8 +150,8 @@ fn main() -> Result<(), anyhow::Error> {
         "Exclusions: {}",
         &parsed.exclude.iter().map(|p| p.as_str()).join(";")
     );
-    // Turn entries that do not match the wildcard into tree, and identify uniformly-licensed subtrees
-    let data_tree: CopyrightDataTree = spdx_information
+    // Turn entries that do not match the wildcard into tree
+    let mut data_tree: CopyrightDataTree = spdx_information
         .into_iter()
         .filter(|fi| {
             let filename = fi.file_name.trim_start_matches("./");
@@ -155,7 +159,10 @@ fn main() -> Result<(), anyhow::Error> {
         })
         .filter(|fi| !matches_wildcards(opts, &parsed.wildcard_entries, fi))
         .collect();
-    // data_tree.propagate_metadata();
+    // identify uniformly-licensed subtrees
+    if args.simplify {
+        data_tree.propagate_metadata();
+    }
 
     // Intro header
     let intro: Option<String> = parsed
