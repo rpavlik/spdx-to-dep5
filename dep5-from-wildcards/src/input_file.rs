@@ -142,6 +142,14 @@ impl WildcardEntry {
         self.patterns.iter().any(|p| p.matches(filename))
     }
 
+    /// Checks to see if the given filename patches any entries that do not contain an actual
+    /// wildcard character -- that is, if the filename is explicitly named.
+    pub fn matches_exact_pattern(&self, filename: &str) -> bool {
+        self.patterns
+            .iter()
+            .any(|p| p.matches(filename) && !p.to_string().contains("*"))
+    }
+
     pub fn matches_license_and_copyright(
         &self,
         license: &SpdxExpression,

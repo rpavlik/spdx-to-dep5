@@ -97,13 +97,22 @@ fn matches_wildcards(
     let parsed_copyright = Copyright::try_parse(options, &copyright_text);
 
     if let Ok(copyright) = parsed_copyright {
-        // eprintln!("{}: {} ; {}", filename, &license_to_match, &copyright);
-        return wildcards
+        let matching_wildcard = wildcards
             .iter()
             .filter(|elt| elt.matches_wildcard(filename))
-            .last()
-            .map(|elt| elt.matches_license_and_copyright(&license_to_match, &copyright))
-            .unwrap_or(false);
+            .last();
+        if let Some(wildcard) = matching_wildcard {
+            // we matched a "wildcard", if it is actually an exact filename, we better match license and copyright.
+            let match_lic = wildcard.matches_license_and_copyright(&license_to_match, &copyright);
+            if wildcard.matches_exact_pattern(filename) && !match_lic {
+                eprintln!(
+                    "License/copyright mismatch for a file matching exact wildcard: {}",
+                    filename
+                );
+            }
+            return match_lic;
+        }
+        return false;
     }
     eprintln!("{}: parse copyright failed", filename);
     false
